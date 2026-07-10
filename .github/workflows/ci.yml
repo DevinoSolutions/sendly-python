@@ -4,6 +4,9 @@ on:
   push:
     branches: [main]
   pull_request:
+  schedule:
+    # Mondays 06:00 UTC -- surface live OpenAPI drift even without a push.
+    - cron: "0 6 * * 1"
 
 # Public repo -> GitHub-hosted standard runners (free for public repos).
 # The org's self-hosted Warp runner group (warp-ubuntu-latest-*) is deliberately
@@ -31,5 +34,19 @@ jobs:
         run: ruff format --check .
       - name: Mypy (strict)
         run: mypy src
+      - name: Contract tests (SDK surface vs vendored OpenAPI)
+        run: pytest tests/test_contract.py
       - name: Pytest
         run: pytest
+      # Non-blocking: diff the vendored spec against the live API so drift shows
+      # up as a warning annotation without failing the build. Runs once (on the
+      # newest interpreter) to avoid duplicate live fetches and annotations.
+      - name: Live OpenAPI drift check (non-blocking)
+        id: spec_drift
+        if: matrix.python-version == '3.13'
+        continue-on-error: true
+        run: python scripts/sync_spec.py --check
+      - name: Annotate OpenAPI drift
+        if: matrix.python-version == '3.13' && steps.spec_drift.outcome == 'failure'
+        run: |
+          echo "::warning title=OpenAPI spec drift::Vendored tests/fixtures/openapi.json differs from the live spec at https://api.sendly.now/api/openapi.json. Run 'python scripts/sync_spec.py' and commit the refreshed copy."
