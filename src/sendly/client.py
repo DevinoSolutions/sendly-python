@@ -22,8 +22,10 @@ from sendly.errors import SendlyConnectionError, SendlyError, error_from_respons
 from sendly.resources.contacts import ContactsResource
 from sendly.resources.domains import DomainsResource
 from sendly.resources.emails import EmailsResource
+from sendly.resources.events import EventsResource
 from sendly.resources.suppression import SuppressionResource
 from sendly.resources.templates import TemplatesResource
+from sendly.resources.verify import VerifyResource
 from sendly.resources.webhooks import WebhooksResource
 
 if TYPE_CHECKING:
@@ -55,8 +57,8 @@ class Sendly:
     """Sendly SDK entry point.
 
     Construct once with an API key and reuse the resource accessors
-    (``emails``, ``contacts``, ``domains``, ``templates``, ``webhooks``,
-    ``suppression``) for all calls.
+    (``emails``, ``contacts``, ``events``, ``domains``, ``templates``,
+    ``verify``, ``webhooks``, ``suppression``) for all calls.
 
     Args:
         api_key: Project API key (``sk_*`` for full access, ``pk_*`` for
@@ -104,8 +106,10 @@ class Sendly:
 
         self.emails = EmailsResource(self)
         self.contacts = ContactsResource(self)
+        self.events = EventsResource(self)
         self.domains = DomainsResource(self)
         self.templates = TemplatesResource(self)
+        self.verify = VerifyResource(self)
         self.webhooks = WebhooksResource(self)
         self.suppression = SuppressionResource(self)
 

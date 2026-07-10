@@ -1,7 +1,8 @@
 # Sendly Python SDK
 
 Official Python SDK for the [Sendly](https://sendly.now) REST API — transactional
-email, contacts, domains, templates, webhooks, and suppression.
+email, contacts, events, domains, templates, email verification, webhooks, and
+suppression.
 
 [![CI](https://github.com/DevinoSolutions/sendly-python/actions/workflows/ci.yml/badge.svg)](https://github.com/DevinoSolutions/sendly-python/actions/workflows/ci.yml)
 
@@ -98,6 +99,18 @@ sendly.contacts.bulk_create({"contacts": [{"email": "a@x.com"}, {"email": "b@x.c
 sendly.contacts.bulk_delete({"emails": ["a@x.com"]})
 ```
 
+### Events
+
+```python
+# Track a custom event for a contact (accepts sk_* and pk_* keys)
+result = sendly.events.track({"event": "signup", "email": "user@example.com"})
+print(result["contact"], result["timestamp"])
+
+# Attach an arbitrary payload and set subscription state
+sendly.events.track({"event": "purchase", "email": "user@example.com",
+                     "subscribed": True, "data": {"plan": "pro", "amount": 42}})
+```
+
 ### Domains
 
 ```python
@@ -118,6 +131,16 @@ sendly.templates.list({"page": 1, "pageSize": 25})
 sendly.templates.get("t_123")
 sendly.templates.update("t_123", {"name": "Welcome v2"})
 sendly.templates.delete("t_123")
+```
+
+### Verify
+
+```python
+# Validate an email address (syntax, MX, disposable domains, plus-addressing).
+# Open endpoint — the SDK still sends your API key, which the API ignores.
+result = sendly.verify.email({"email": "user@example.com"})
+if not result["valid"]:
+    print("Rejected:", result.get("reason"))
 ```
 
 ### Webhooks

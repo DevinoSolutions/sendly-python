@@ -40,15 +40,8 @@ _PARAM_RE = re.compile(r"\{[^}]*\}")
 #: Spec operations the SDK intentionally does not expose yet. Every entry is
 #: asserted to (a) exist in the vendored spec and (b) NOT be implemented by any
 #: resource method, so a stale entry -- added by mistake or left behind after the
-#: SDK grows a wrapper -- fails the suite.
-NOT_YET_IMPLEMENTED: set[tuple[str, str]] = {
-    # Custom-event ingestion (Events tag). Accepts sk_*/pk_* keys; reserved
-    # system event names are rejected. No resource wrapper yet.
-    ("POST", "/api/track"),
-    # Open, unauthenticated email validation (syntax/MX/disposable/plus-address)
-    # used by the marketing-site verifier -- outside the authenticated SDK surface.
-    ("POST", "/api/verify"),
-}
+#: SDK grows a wrapper -- fails the suite. Empty: the whole spec surface is wrapped.
+NOT_YET_IMPLEMENTED: set[tuple[str, str]] = set()
 
 
 # --------------------------------------------------------------------------- #

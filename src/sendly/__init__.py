@@ -25,8 +25,10 @@ from sendly.errors import (
 from sendly.resources.contacts import ContactsResource
 from sendly.resources.domains import DomainsResource
 from sendly.resources.emails import EmailsResource
+from sendly.resources.events import EventsResource
 from sendly.resources.suppression import SuppressionResource
 from sendly.resources.templates import TemplatesResource
+from sendly.resources.verify import VerifyResource
 from sendly.resources.webhooks import WebhooksResource
 from sendly.webhook_utils import DEFAULT_TOLERANCE_MS, construct_event, verify_signature
 
@@ -39,6 +41,7 @@ __all__ = [
     "ContactsResource",
     "DomainsResource",
     "EmailsResource",
+    "EventsResource",
     "Sendly",
     "SendlyAuthenticationError",
     "SendlyConflictError",
@@ -51,6 +54,7 @@ __all__ = [
     "SendlyValidationError",
     "SuppressionResource",
     "TemplatesResource",
+    "VerifyResource",
     "WebhooksResource",
     "__version__",
     "construct_event",

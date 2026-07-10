@@ -72,3 +72,13 @@ WebhookCallsListResponse = JSONDict
 SuppressionRecord = JSONDict
 SuppressionListResponse = JSONDict
 SuppressionCheckResponse = JSONDict
+
+# ---------- Events ----------
+
+TrackEventData = JSONDict
+TrackEventResponse = JSONDict
+
+# ---------- Verify ----------
+
+VerifyEmailData = JSONDict
+VerifyEmailResponse = JSONDict
