@@ -12,7 +12,17 @@ suppression.
 
 ## Installation
 
-Not yet published to PyPI. Install from GitHub:
+```bash
+pip install py-sendly
+```
+
+The distribution is published as `py-sendly`; the import name is unchanged:
+
+```python
+import sendly
+```
+
+Alternatively, install the latest `main` directly from GitHub:
 
 ```bash
 pip install git+https://github.com/DevinoSolutions/sendly-python.git
