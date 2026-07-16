@@ -137,7 +137,7 @@ sendly.domains.delete("d_123")
 ```python
 sendly.templates.create({"name": "Welcome", "subject": "Welcome", "body": "<p>Hi</p>",
                          "from": "a@you.com", "type": "MARKETING"})
-sendly.templates.list({"page": 1, "pageSize": 25})
+sendly.templates.list({"limit": 25})  # cursor pagination: pass {"cursor": ...} for the next page
 sendly.templates.get("t_123")
 sendly.templates.update("t_123", {"name": "Welcome v2"})
 sendly.templates.delete("t_123")
@@ -196,7 +196,7 @@ except SendlyError as err:
 
 | Exception | HTTP status |
 | --- | --- |
-| `SendlyValidationError` | 400 |
+| `SendlyValidationError` | 400, 422 |
 | `SendlyAuthenticationError` | 401 |
 | `SendlyPermissionError` | 403 |
 | `SendlyNotFoundError` | 404 |
@@ -206,6 +206,11 @@ except SendlyError as err:
 | `SendlyConnectionError` | transport failure (status `0`) |
 
 All inherit from `SendlyError`.
+
+Invalid input raises `SendlyValidationError`. Migrated routes report it as HTTP
+`422` with `error_code == "VALIDATION_ERROR"` and a per-field breakdown under
+`err.body["error"]["details"]["errors"]`; legacy/malformed requests still use
+`400`. Both surface as `SendlyValidationError`.
 
 ## Verifying webhooks
 

@@ -29,7 +29,8 @@ class TemplatesResource:
         return record
 
     def list(self, query: Query | None = None) -> TemplateListResponse:
-        """List templates with offset pagination + optional type filter."""
+        """List templates with cursor pagination (``limit``/``cursor``) + optional
+        type filter."""
         response: TemplateListResponse = self._client.request(
             method="GET", path="/api/templates", query=query
         )
@@ -52,7 +53,9 @@ class TemplatesResource:
         return record
 
     def delete(self, id: str) -> None:
-        """Delete a template. Returns 204 unless still referenced."""
+        """Delete a template. Returns ``None`` (the API responds 200 with the
+        deleted template's id); raises :class:`SendlyConflictError` if the
+        template is still referenced."""
         self._client.request(
             method="DELETE", path=f"/api/templates/{encode_path_segment(id)}", no_content=True
         )

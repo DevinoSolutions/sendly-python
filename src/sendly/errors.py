@@ -30,7 +30,12 @@ class SendlyError(Exception):
 
 
 class SendlyValidationError(SendlyError):
-    """400 — request body or query failed validation."""
+    """400 / 422 — request body or query failed validation.
+
+    Migrated routes return ``422`` with a ``VALIDATION_ERROR`` code (and an
+    ``error.details.errors`` list); legacy/malformed-request paths still use
+    ``400``. Both map here so ``except SendlyValidationError`` catches either.
+    """
 
 
 class SendlyAuthenticationError(SendlyError):
@@ -76,6 +81,8 @@ def error_from_response(
         return SendlyPermissionError(status_code, error_code, message, body)
     if status_code == 404:
         return SendlyNotFoundError(status_code, error_code, message, body)
+    if status_code == 422:
+        return SendlyValidationError(status_code, error_code, message, body)
     if status_code == 409:
         return SendlyConflictError(status_code, error_code, message, body)
     if status_code == 429:

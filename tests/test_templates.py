@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 
 from sendly import SendlyConflictError
-from support import Recorder, empty_response, json_response, make_client
+from support import Recorder, json_response, make_client
 
 
 def test_create_posts_templates():
@@ -23,13 +23,14 @@ def test_create_posts_templates():
     assert str(rec.request.url) == "http://localhost/api/templates"
 
 
-def test_list_serializes_page_and_page_size():
-    rec = Recorder(json_response(200, {"success": True, "data": {"items": []}}))
+def test_list_serializes_cursor_and_limit():
+    rec = Recorder(json_response(200, {"success": True, "data": {"data": [], "total": 0}}))
     client = make_client(rec)
-    client.templates.list({"page": 2, "pageSize": 25})
+    client.templates.list({"limit": 25, "cursor": "t_50", "type": "MARKETING"})
     url = str(rec.request.url)
-    assert "page=2" in url
-    assert "pageSize=25" in url
+    assert "limit=25" in url
+    assert "cursor=t_50" in url
+    assert "type=MARKETING" in url
 
 
 def test_update_patches_template():
@@ -39,8 +40,9 @@ def test_update_patches_template():
     assert rec.request.method == "PATCH"
 
 
-def test_delete_resolves_on_204():
-    rec = Recorder(empty_response(204))
+def test_delete_discards_200_id_body():
+    # The API returns 200 with {success, data: {id}}; the SDK discards it -> None.
+    rec = Recorder(json_response(200, {"success": True, "data": {"id": "t_1"}}))
     client = make_client(rec)
     assert client.templates.delete("t_1") is None
 

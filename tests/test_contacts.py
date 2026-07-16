@@ -6,8 +6,8 @@ import json
 
 import pytest
 
-from sendly import SendlyNotFoundError
-from support import Recorder, empty_response, json_response, make_client
+from sendly import SendlyNotFoundError, SendlyValidationError
+from support import Recorder, json_response, make_client
 
 
 def test_create_posts_and_unwraps_data():
@@ -46,11 +46,28 @@ def test_update_patches_contact_path():
     assert rec.request.method == "PATCH"
 
 
-def test_delete_sends_delete_and_resolves_on_204():
-    rec = Recorder(empty_response(204))
+def test_delete_sends_delete_and_discards_200_id_body():
+    # The API returns 200 with {success, data: {id}}; the SDK discards it -> None.
+    rec = Recorder(json_response(200, {"success": True, "data": {"id": "c_4"}}))
     client = make_client(rec)
     assert client.contacts.delete("c_4") is None
     assert rec.request.method == "DELETE"
+
+
+def test_bulk_delete_raises_validation_error_on_422():
+    # Bulk ops on an unresolved project now return 422 VALIDATION_ERROR (was NO_PROJECT).
+    rec = Recorder(
+        json_response(
+            422,
+            {
+                "success": False,
+                "error": {"message": "No project", "code": "VALIDATION_ERROR"},
+            },
+        )
+    )
+    client = make_client(rec)
+    with pytest.raises(SendlyValidationError):
+        client.contacts.bulk_delete({"emails": ["a@b.com"]})
 
 
 def test_get_raises_not_found_on_404():

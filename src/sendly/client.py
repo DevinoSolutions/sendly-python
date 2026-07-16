@@ -156,7 +156,8 @@ class Sendly:
         except httpx.HTTPError as exc:
             raise SendlyConnectionError(f"Sendly request failed: {exc}", exc) from exc
 
-        # 204 No Content (DELETE endpoints) or caller-forced no-content.
+        # 204 No Content or caller-forced no-content (DELETE endpoints, which
+        # now respond 200 with an id body the SDK intentionally discards).
         if response.status_code == 204 or no_content:
             if not response.is_success:
                 self._raise_for_error(response)

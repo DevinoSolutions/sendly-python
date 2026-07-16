@@ -71,6 +71,12 @@
       "Error": {
         "type": "object",
         "properties": {
+          "success": {
+            "type": "boolean",
+            "enum": [
+              false
+            ]
+          },
           "error": {
             "type": "object",
             "properties": {
@@ -79,6 +85,18 @@
               },
               "code": {
                 "type": "string"
+              },
+              "details": {
+                "type": "object",
+                "properties": {
+                  "errors": {
+                    "type": "array",
+                    "items": {}
+                  }
+                },
+                "required": [
+                  "errors"
+                ]
               }
             },
             "required": [
@@ -90,7 +108,7 @@
         "required": [
           "error"
         ],
-        "description": "Standard error envelope returned by all 4xx/5xx responses."
+        "description": "Standard error envelope returned by all 4xx/5xx responses. Migrated routes include `success: false`; 422 validation errors add `error.details.errors`."
       },
       "SuccessEmpty": {
         "type": "object",
@@ -107,29 +125,33 @@
         ],
         "description": "Bare success envelope with no payload."
       },
-      "Pagination": {
+      "IdResponse": {
         "type": "object",
         "properties": {
-          "page": {
-            "type": "integer"
+          "success": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
           },
-          "pageSize": {
-            "type": "integer"
-          },
-          "total": {
-            "type": "integer"
-          },
-          "totalPages": {
-            "type": "integer"
+          "data": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              }
+            },
+            "required": [
+              "id"
+            ]
           }
         },
         "required": [
-          "page",
-          "pageSize",
-          "total",
-          "totalPages"
+          "success",
+          "data"
         ],
-        "description": "Page-based pagination metadata."
+        "description": "Success envelope carrying the affected resource's id, e.g. after a delete."
       },
       "Contact": {
         "type": "object",
@@ -187,34 +209,39 @@
             ]
           },
           "data": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/Contact"
-            }
-          },
-          "total": {
-            "type": "integer"
-          },
-          "nextCursor": {
-            "type": [
-              "string",
-              "null"
+            "type": "object",
+            "properties": {
+              "data": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/Contact"
+                }
+              },
+              "total": {
+                "type": "integer"
+              },
+              "nextCursor": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "Cursor for the next page, or null on the last page."
+              },
+              "hasMore": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "data",
+              "total",
+              "nextCursor",
+              "hasMore"
             ]
-          },
-          "cursor": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "hasMore": {
-            "type": "boolean"
           }
         },
         "required": [
           "success",
-          "data",
-          "total"
+          "data"
         ],
         "description": "Cursor-paginated list of contacts."
       },
@@ -297,23 +324,43 @@
         "type": "object",
         "properties": {
           "success": {
-            "type": "boolean"
+            "type": "boolean",
+            "enum": [
+              true
+            ]
           },
           "data": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/Template"
-            }
-          },
-          "pagination": {
-            "$ref": "#/components/schemas/Pagination"
+            "type": "object",
+            "properties": {
+              "data": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/Template"
+                }
+              },
+              "total": {
+                "type": "integer"
+              },
+              "cursor": {
+                "type": "string",
+                "description": "Cursor for the next page; omitted on the last page."
+              },
+              "hasMore": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "data",
+              "total",
+              "hasMore"
+            ]
           }
         },
         "required": [
           "success",
           "data"
         ],
-        "description": "Page-paginated list of templates."
+        "description": "Cursor-paginated list of templates."
       },
       "Domain": {
         "type": "object",
@@ -2346,6 +2393,16 @@
               }
             }
           },
+          "422": {
+            "description": "Validation failed — request body or query parameters did not match the schema",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
           "429": {
             "description": "Rate limit or billing limit exceeded",
             "content": {
@@ -2459,6 +2516,16 @@
               }
             }
           },
+          "422": {
+            "description": "Validation failed — request body or query parameters did not match the schema",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
           "429": {
             "description": "Rate limit or billing limit exceeded",
             "content": {
@@ -2489,7 +2556,7 @@
           "Contacts"
         ],
         "summary": "Create or update a contact by email",
-        "description": "Idempotent contact upsert keyed by email. Returns 201 on first create, 200 on subsequent updates.",
+        "description": "Idempotent contact upsert keyed by email. Always answers 200 — the create-vs-update distinction is not signalled via status code.",
         "security": [
           {
             "ApiKeyAuth": []
@@ -2510,32 +2577,7 @@
         },
         "responses": {
           "200": {
-            "description": "Existing contact updated",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "success": {
-                      "type": "boolean",
-                      "enum": [
-                        true
-                      ]
-                    },
-                    "data": {
-                      "$ref": "#/components/schemas/Contact"
-                    }
-                  },
-                  "required": [
-                    "success",
-                    "data"
-                  ]
-                }
-              }
-            }
-          },
-          "201": {
-            "description": "Contact created",
+            "description": "Contact created or updated",
             "content": {
               "application/json": {
                 "schema": {
@@ -2581,6 +2623,16 @@
           },
           "403": {
             "description": "Forbidden — insufficient permissions or project disabled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed — request body or query parameters did not match the schema",
             "content": {
               "application/json": {
                 "schema": {
@@ -2725,6 +2777,16 @@
               }
             }
           },
+          "422": {
+            "description": "Validation failed — request body or query parameters did not match the schema",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
           "429": {
             "description": "Rate limit or billing limit exceeded",
             "content": {
@@ -2828,6 +2890,16 @@
           },
           "403": {
             "description": "Forbidden — insufficient permissions or project disabled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed — request body or query parameters did not match the schema",
             "content": {
               "application/json": {
                 "schema": {
@@ -3075,6 +3147,16 @@
               }
             }
           },
+          "422": {
+            "description": "Validation failed — request body or query parameters did not match the schema",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
           "429": {
             "description": "Rate limit or billing limit exceeded",
             "content": {
@@ -3103,6 +3185,7 @@
           "Contacts"
         ],
         "summary": "Delete a contact",
+        "description": "Hard-delete a contact. Answers 200 with `{ success, data: { id } }` (pre-seam this was 204 No Content).",
         "security": [
           {
             "ApiKeyAuth": []
@@ -3123,8 +3206,15 @@
           }
         ],
         "responses": {
-          "204": {
-            "description": "Contact deleted"
+          "200": {
+            "description": "Contact deleted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IdResponse"
+                }
+              }
+            }
           },
           "400": {
             "description": "Validation error",
@@ -3823,7 +3913,7 @@
           "Templates"
         ],
         "summary": "List templates",
-        "description": "Page-paginated list of templates. Use `search` for full-text-ish filtering on name/description/subject.",
+        "description": "Cursor-paginated list of templates. Use `search` for full-text-ish filtering on name/description/subject.",
         "security": [
           {
             "ApiKeyAuth": []
@@ -3837,21 +3927,20 @@
             "schema": {
               "type": "integer",
               "minimum": 1,
-              "default": 1
-            },
-            "required": false,
-            "name": "page",
-            "in": "query"
-          },
-          {
-            "schema": {
-              "type": "integer",
-              "minimum": 1,
               "maximum": 100,
               "default": 20
             },
             "required": false,
-            "name": "pageSize",
+            "name": "limit",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "cursor",
             "in": "query"
           },
           {
@@ -3909,6 +3998,16 @@
           },
           "403": {
             "description": "Forbidden — insufficient permissions or project disabled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed — request body or query parameters did not match the schema",
             "content": {
               "application/json": {
                 "schema": {
@@ -4012,6 +4111,16 @@
           },
           "403": {
             "description": "Forbidden — insufficient permissions or project disabled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed — request body or query parameters did not match the schema",
             "content": {
               "application/json": {
                 "schema": {
@@ -4259,6 +4368,16 @@
               }
             }
           },
+          "422": {
+            "description": "Validation failed — request body or query parameters did not match the schema",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
           "429": {
             "description": "Rate limit or billing limit exceeded",
             "content": {
@@ -4287,7 +4406,7 @@
           "Templates"
         ],
         "summary": "Delete a template",
-        "description": "Refuses with 409 if the template is still attached to a workflow step or active campaign.",
+        "description": "Answers 200 with `{ success, data: { id } }` (pre-seam this was 204 No Content). Refuses with 409 if the template is still attached to a workflow step or active campaign.",
         "security": [
           {
             "ApiKeyAuth": []
@@ -4308,8 +4427,15 @@
           }
         ],
         "responses": {
-          "204": {
-            "description": "Template deleted"
+          "200": {
+            "description": "Template deleted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IdResponse"
+                }
+              }
+            }
           },
           "400": {
             "description": "Validation error",

@@ -86,7 +86,8 @@ class ContactsResource:
         return record
 
     def delete(self, id: str) -> None:
-        """Delete a contact. Returns 204."""
+        """Delete a contact. Returns ``None`` (the API responds 200 with the
+        deleted contact's id)."""
         self._client.request(
             method="DELETE", path=f"/api/contacts/{encode_path_segment(id)}", no_content=True
         )
