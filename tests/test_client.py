@@ -110,6 +110,31 @@ def test_maps_400_to_validation_error_with_envelope():
     assert str(err) == "bad input"
 
 
+def test_maps_422_to_validation_error_with_details():
+    # Migrated routes return 422 VALIDATION_ERROR (with error.details.errors)
+    # for invalid input; it must map to SendlyValidationError like a 400.
+    rec = Recorder(
+        json_response(
+            422,
+            {
+                "success": False,
+                "error": {
+                    "message": "Invalid body",
+                    "code": "VALIDATION_ERROR",
+                    "details": {"errors": [{"path": "email", "message": "required"}]},
+                },
+            },
+        )
+    )
+    client = make_client(rec)
+    with pytest.raises(SendlyValidationError) as excinfo:
+        client.request(method="POST", path="/api/contacts", body={})
+    err = excinfo.value
+    assert err.status_code == 422
+    assert err.error_code == "VALIDATION_ERROR"
+    assert err.body["error"]["details"]["errors"][0]["path"] == "email"
+
+
 def test_maps_401_to_authentication_error():
     rec = Recorder(json_response(401, {"error": {"message": "no key", "code": "unauthorized"}}))
     client = make_client(rec)
