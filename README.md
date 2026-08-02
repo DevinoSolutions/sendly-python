@@ -30,6 +30,25 @@ pip install git+https://github.com/DevinoSolutions/sendly-python.git
 
 Requires Python 3.10+.
 
+## Already on Resend, SendGrid, Postmark, Mailgun, or Plunk?
+
+You don't even need this SDK to try Sendly. The API also speaks the
+transactional-send dialect of those providers — keep the vendor SDK you already
+run and change **two things**: the base URL and the API key.
+
+```python
+import resend  # your existing Resend integration
+
+resend.api_key = "sk_your_sendly_key"
+resend.api_url = "https://api.sendly.now/api/compat/resend"
+# resend.Emails.send(...) now sends through Sendly — same code, same shapes.
+```
+
+Every compat request runs through the same pipeline as the native API (domain
+verification, suppression, limits), and anything a dialect can express that
+Sendly doesn't support returns a clean error in that vendor's own error shape.
+Per-provider guides: [docs.sendly.now/migrate](https://docs.sendly.now/migrate).
+
 ## Quickstart
 
 The client reads your API key from the `SENDLY_API_KEY` environment variable:
