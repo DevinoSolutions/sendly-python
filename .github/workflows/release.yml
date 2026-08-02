@@ -1,6 +1,6 @@
 name: Release
 
-# Publishes py-sendly to PyPI when a version tag (vX.Y.Z) is pushed.
+# Publishes sendly-python to PyPI when a version tag (vX.Y.Z) is pushed.
 # Disjoint from ci.yml (push/PR to main + weekly cron): this runs ONLY on tags,
 # re-runs the full gate, then publishes. A red SDK can never ship.
 on:

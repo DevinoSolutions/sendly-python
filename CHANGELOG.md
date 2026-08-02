@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to `py-sendly` are documented here. This project adheres to
+All notable changes to `sendly-python` are documented here. This project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]

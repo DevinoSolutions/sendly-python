@@ -4,9 +4,10 @@ build-backend = "hatchling.build"
 
 [project]
 # PyPI distribution name. The plain `sendly` name is owned by an unrelated
-# SMS company on PyPI, so we publish as `py-sendly`. The import package is
+# SMS company on PyPI, so we publish as `sendly-python` (matches the repo and
+# the PyPI trusted-publisher configuration). The import package is
 # unchanged (`import sendly`) — see [tool.hatch.build.targets.wheel] below.
-name = "py-sendly"
+name = "sendly-python"
 version = "0.1.0"
 description = "Official Sendly Python SDK"
 readme = "README.md"

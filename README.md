@@ -13,10 +13,10 @@ suppression.
 ## Installation
 
 ```bash
-pip install py-sendly
+pip install sendly-python
 ```
 
-The distribution is published as `py-sendly`; the import name is unchanged:
+The distribution is published as `sendly-python`; the import name is unchanged:
 
 ```python
 import sendly
