@@ -99,10 +99,11 @@ class WorkflowsResource:
         """Iterate every execution of a workflow across pages."""
         return iterate_cursor(lambda params: self.list_executions(id, params), query)
 
-    def start_execution(self, id: str, body: Body | None = None) -> WorkflowExecutionRecord:
+    def start_execution(self, id: str, body: Body) -> WorkflowExecutionRecord:
         """Start the workflow for one contact, bypassing its event trigger.
 
-        ``body`` requires ``contact_id`` and may carry a ``context`` object the
+        ``body`` is required and must carry ``contact_id`` — an execution always
+        belongs to a contact. It may also carry a ``context`` object the
         workflow's steps can read.
         """
         response: WorkflowExecutionRecord = self._client.request(

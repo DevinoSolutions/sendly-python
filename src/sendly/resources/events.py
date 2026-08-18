@@ -79,15 +79,15 @@ class EventsResource:
         """Iterate every matching event across pages, following the cursor for you."""
         return iterate_cursor(self.list, query)
 
-    def list_names(self, query: Query | None = None) -> EventNameList:
+    def list_names(self) -> EventNameList:
         """The distinct event names recorded on the project.
 
-        Useful for building a workflow trigger: a workflow's ``event_name`` has
-        to match a name events are actually recorded under.
+        Takes no arguments — the endpoint declares no parameters, and the answer
+        is the project's whole name set. Useful for building a workflow trigger:
+        a workflow's ``event_name`` has to match a name events are actually
+        recorded under.
         """
-        response: EventNameList = self._client.request(
-            method="GET", path="/api/v1/events/names", query=query
-        )
+        response: EventNameList = self._client.request(method="GET", path="/api/v1/events/names")
         return response
 
     def stats(self, query: Query | None = None) -> EventStats:

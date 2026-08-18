@@ -348,3 +348,42 @@ def test_core_operations_forward_a_body_and_match_required_fields():
     assert "email" in _required_fields(spec, "/api/contacts", "post"), (
         "createContact no longer requires 'email' in the spec -- revisit contacts.create."
     )
+
+
+def test_a_required_request_body_is_a_required_python_argument():
+    # A body the spec marks required must not be defaulted to None, or a caller
+    # can send an empty request the API is guaranteed to reject.
+    spec = _load_spec()
+    resources = _discover_resources()
+    checks = [
+        ("workflows", "start_execution", "/api/v1/workflows/{id}/executions", "contact_id"),
+        ("segments", "create", "/api/v1/segments", "name"),
+        ("events", "record", "/api/v1/events", "name"),
+    ]
+    for attr, method, path, field in checks:
+        operation = spec["paths"][path]["post"]
+        assert operation["requestBody"].get("required") is True, (
+            f"{path} no longer requires a request body -- revisit {attr}.{method}."
+        )
+        assert field in _required_fields(spec, path, "post"), (
+            f"{path} no longer requires '{field}' -- revisit {attr}.{method}."
+        )
+        parameter = inspect.signature(getattr(resources[attr], method)).parameters["body"]
+        assert parameter.default is inspect.Parameter.empty, (
+            f"{attr}.{method} defaults its body, but the spec requires one."
+        )
+
+
+def test_a_parameterless_operation_takes_no_query_argument():
+    # The spec declares no parameters on these, so a query argument would invite
+    # callers to send filters the API silently ignores.
+    spec = _load_spec()
+    resources = _discover_resources()
+    for attr, method, verb, path in [("events", "list_names", "get", "/api/v1/events/names")]:
+        assert not spec["paths"][path][verb].get("parameters"), (
+            f"{verb.upper()} {path} now declares parameters -- revisit {attr}.{method}."
+        )
+        parameters = inspect.signature(getattr(resources[attr], method)).parameters
+        assert list(parameters) == ["self"], (
+            f"{attr}.{method} accepts {list(parameters)[1:]}, but the spec declares no parameters."
+        )
