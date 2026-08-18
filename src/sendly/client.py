@@ -7,6 +7,14 @@ Ported from the reference TypeScript SDK's ``client.ts``. Behavioural parity:
 * Error envelope ``{error: {code, message}}`` mapped to typed exceptions.
 * Query params skip ``None``/empty-string; list values append repeated keys.
 * 204 / No-Content -> ``None``; non-JSON success body -> raw text.
+
+One client, two response dialects. The legacy ``/api/*`` resources wrap results
+in ``{success, data}`` and report failures as ``{error: {code, message}}``. The
+``/api/v1/*`` resources (``campaigns``, ``segments``, ``workflows``,
+``analytics``, ``usage``, and the v1 methods on ``events``) return the resource
+body directly — no envelope, so they never call :meth:`Sendly.unwrap` — and
+report failures as RFC 9457 problem documents. Both dialects raise the same
+:class:`~sendly.errors.SendlyError` subclasses.
 """
 
 from __future__ import annotations
@@ -18,15 +26,27 @@ from urllib.parse import urlencode
 
 import httpx
 
-from sendly.errors import SendlyConnectionError, SendlyError, error_from_response
+from sendly.errors import (
+    SendlyConnectionError,
+    SendlyError,
+    error_from_problem,
+    error_from_response,
+    is_problem_document,
+)
+from sendly.resources.analytics import AnalyticsResource
+from sendly.resources.campaigns import CampaignsResource
 from sendly.resources.contacts import ContactsResource
 from sendly.resources.domains import DomainsResource
 from sendly.resources.emails import EmailsResource
 from sendly.resources.events import EventsResource
+from sendly.resources.lists import ListsResource
+from sendly.resources.segments import SegmentsResource
 from sendly.resources.suppression import SuppressionResource
 from sendly.resources.templates import TemplatesResource
+from sendly.resources.usage import UsageResource
 from sendly.resources.verify import VerifyResource
 from sendly.resources.webhooks import WebhooksResource
+from sendly.resources.workflows import WorkflowsResource
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -37,7 +57,7 @@ if TYPE_CHECKING:
 __all__ = ["DEFAULT_BASE_URL", "SDK_VERSION", "Sendly"]
 
 #: Package version. Kept in sync with ``pyproject.toml``.
-SDK_VERSION = "0.1.0"
+SDK_VERSION = "0.2.0"
 
 #: Default production API base. Override via ``base_url`` for staging/self-hosted.
 DEFAULT_BASE_URL = "https://api.sendly.now"
@@ -56,9 +76,11 @@ def _stringify(value: Any) -> str:
 class Sendly:
     """Sendly SDK entry point.
 
-    Construct once with an API key and reuse the resource accessors
-    (``emails``, ``contacts``, ``events``, ``domains``, ``templates``,
-    ``verify``, ``webhooks``, ``suppression``) for all calls.
+    Construct once with an API key and reuse the resource accessors for all
+    calls: ``emails``, ``contacts``, ``events``, ``domains``, ``templates``,
+    ``verify``, ``webhooks``, ``suppression`` and ``lists`` on the legacy
+    surface, plus ``campaigns``, ``segments``, ``workflows``, ``analytics`` and
+    ``usage`` on ``/api/v1``.
 
     Args:
         api_key: Project API key (``sk_*`` for full access, ``pk_*`` for
@@ -112,6 +134,14 @@ class Sendly:
         self.verify = VerifyResource(self)
         self.webhooks = WebhooksResource(self)
         self.suppression = SuppressionResource(self)
+        self.lists = ListsResource(self)
+        # /api/v1 surface. Same client, same auth; bare resource bodies instead
+        # of the legacy {success, data} envelope, and RFC 9457 problem errors.
+        self.campaigns = CampaignsResource(self)
+        self.segments = SegmentsResource(self)
+        self.workflows = WorkflowsResource(self)
+        self.analytics = AnalyticsResource(self)
+        self.usage = UsageResource(self)
 
     def request(
         self,
@@ -180,7 +210,9 @@ class Sendly:
                 return text
 
         if not response.is_success:
-            self._raise_from_body(response.status_code, parsed)
+            self._raise_from_body(
+                response.status_code, parsed, response.headers.get("content-type")
+            )
 
         return parsed
 
@@ -238,9 +270,16 @@ class Sendly:
                 body = json.loads(text)
             except json.JSONDecodeError:
                 body = None
-        self._raise_from_body(response.status_code, body)
+        self._raise_from_body(response.status_code, body, response.headers.get("content-type"))
 
-    def _raise_from_body(self, status_code: int, body: Any) -> NoReturn:
+    def _raise_from_body(
+        self, status_code: int, body: Any, content_type: str | None = None
+    ) -> NoReturn:
+        # /api/v1 speaks RFC 9457; the legacy surface speaks {success, error}.
+        # Both land on the same exception classes, keyed off the status.
+        if is_problem_document(body, content_type):
+            raise error_from_problem(status_code, body)
+
         error = body.get("error") if isinstance(body, dict) else None
         error = error if isinstance(error, dict) else {}
         raw_message = error.get("message")

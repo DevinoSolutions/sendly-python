@@ -73,6 +73,11 @@ SuppressionRecord = JSONDict
 SuppressionListResponse = JSONDict
 SuppressionCheckResponse = JSONDict
 
+# ---------- Lists ----------
+
+ListSubscribeData = JSONDict
+ListUnsubscribeData = JSONDict
+
 # ---------- Events ----------
 
 TrackEventData = JSONDict
@@ -82,3 +87,39 @@ TrackEventResponse = JSONDict
 
 VerifyEmailData = JSONDict
 VerifyEmailResponse = JSONDict
+
+# ---------- /api/v1 ----------
+#
+# The v1 surface returns bare resource bodies (no {success, data} envelope) and
+# a uniform list envelope: {data, has_more, next_cursor}. The ``*List`` aliases
+# below name that envelope; the iterator methods yield the items inside ``data``.
+
+CursorList = JSONDict
+
+CampaignRecord = JSONDict
+CampaignList = CursorList
+CampaignStats = JSONDict
+CampaignDeleted = JSONDict
+
+SegmentRecord = JSONDict
+SegmentList = CursorList
+SegmentDeleted = JSONDict
+ContactList = CursorList
+
+WorkflowRecord = JSONDict
+WorkflowList = CursorList
+WorkflowDeleted = JSONDict
+WorkflowStats = JSONDict
+WorkflowExecutionRecord = JSONDict
+WorkflowExecutionList = CursorList
+
+EventRecord = JSONDict
+EventList = CursorList
+EventNameList = JSONDict
+EventStats = JSONDict
+
+AnalyticsTimeseries = JSONDict
+CampaignAnalytics = JSONDict
+TopCampaignList = JSONDict
+
+UsageSummary = JSONDict
