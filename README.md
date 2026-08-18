@@ -194,6 +194,125 @@ sendly.suppression.get("bounce@example.com")
 sendly.suppression.remove("bounce@example.com")
 ```
 
+### Lists
+
+```python
+# Both calls accept sending-only (pk_*) keys, so they can back a public form.
+result = sendly.lists.subscribe("l_123", {"email": "user@example.com"})
+
+# On a double opt-in list the membership is PENDING and carries a confirmToken.
+# Sendly does NOT send the confirmation email — deliver this link yourself.
+if result["status"] == "PENDING":
+    confirm_url = f"https://api.sendly.now/api/lists/confirm?token={result['confirmToken']}"
+
+# Re-subscribing an address that opted out needs an explicit opt-in, or the call
+# fails with 409 RESUBSCRIBE_CONFIRMATION_REQUIRED.
+sendly.lists.subscribe("l_123", {"email": "user@example.com", "allowResubscribe": True})
+
+sendly.lists.unsubscribe("l_123", {"email": "user@example.com"})
+```
+
+## The v1 API
+
+`campaigns`, `segments`, `workflows`, `analytics` and `usage` — plus the v1
+methods on `events` — speak Sendly's `/api/v1` surface. Same client, same API
+key; two differences worth knowing:
+
+- **Responses are bare resource bodies.** There is no `{success, data}` envelope
+  to unwrap, so what the API documents is exactly what you get.
+- **Errors are RFC 9457 problem documents.** They raise the same exception
+  classes as the legacy surface, with two extra fields — see
+  [Error handling](#error-handling).
+
+### Campaigns
+
+```python
+campaign = sendly.campaigns.create(
+    {
+        "name": "August launch",
+        "subject": "We are live",
+        "body": "<p>Hello</p>",
+        "from": "team@you.com",
+        "audience_type": "ALL",
+    },
+    idempotency_key="august-launch",
+)
+
+# Send now, or schedule it. Key the replay — a duplicate send mails the audience twice.
+sendly.campaigns.send(campaign["id"], idempotency_key="august-launch-send")
+sendly.campaigns.send(campaign["id"], {"scheduled_for": "2026-09-01T10:00:00Z"})
+
+sendly.campaigns.pause(campaign["id"])
+sendly.campaigns.resume(campaign["id"])
+sendly.campaigns.cancel(campaign["id"])
+
+stats = sendly.campaigns.stats(campaign["id"])
+print(stats["delivered"], stats["open_rate"])
+```
+
+### Pagination
+
+Every v1 list answers `{data, has_more, next_cursor}` — an opaque forward-only
+cursor, and no total. Page it yourself with `limit` (1–100, default 20) and
+`after`:
+
+```python
+page = sendly.campaigns.list({"limit": 50})
+while page["has_more"]:
+    page = sendly.campaigns.list({"limit": 50, "after": page["next_cursor"]})
+```
+
+…or let the `iter_*` companion do it. It yields individual items and follows the
+cursor until the last page:
+
+```python
+for campaign in sendly.campaigns.iter_list({"limit": 100}):
+    print(campaign["name"], campaign["status"])
+
+for contact in sendly.segments.iter_list_contacts("seg_123"):
+    print(contact["email"])
+```
+
+Keep your filters identical for every page of one walk. Changing them
+mid-pagination invalidates the cursor and the API answers `422 validation_error`
+telling you to restart from the first page — which is exactly why `iter_*` holds
+the query fixed and only advances `after`.
+
+Available on the six cursor-paginated listings: `campaigns.iter_list`,
+`segments.iter_list`, `segments.iter_list_contacts`, `workflows.iter_list`,
+`workflows.iter_list_executions`, `events.iter_list`. The analytics endpoints and
+`events.list_names` / `events.stats` return a bounded aggregate rather than a
+cursor, so they have no iterator.
+
+### Segments, workflows, events, analytics, usage
+
+```python
+segment = sendly.segments.create({"name": "Power users", "type": "DYNAMIC",
+                                  "condition": {"field": "plan", "op": "eq", "value": "pro"}})
+sendly.segments.list_contacts(segment["id"], {"limit": 50})
+
+workflow = sendly.workflows.create({"name": "Welcome", "event_name": "signup.completed"})
+sendly.workflows.start_execution(workflow["id"], {"contact_id": "c_123"})
+# Executions are cancelled by execution id alone — not nested under the workflow.
+sendly.workflows.cancel_execution("exe_123")
+sendly.workflows.stats(workflow["id"], {"from": "2026-08-01"})
+
+# events.record is the v1 counterpart of the legacy events.track. Same effect,
+# v1 dialect. It takes no idempotency_key: events are append-only and the API
+# deliberately does not ledger them.
+sendly.events.record({"name": "signup.completed", "contact_id": "c_123", "data": {"plan": "pro"}})
+sendly.events.list({"event_name": "signup.completed", "limit": 20})
+sendly.events.list_names()
+sendly.events.stats({"from": "2026-08-01", "to": "2026-08-31"})
+
+sendly.analytics.timeseries({"from": "2026-08-01", "to": "2026-08-31"})
+sendly.analytics.campaigns()
+sendly.analytics.top_campaigns({"limit": 5})
+
+usage = sendly.usage.get()
+print(usage["plan"], usage["monthly"])
+```
+
 ## Error handling
 
 Every non-2xx response raises a `SendlyError` subclass carrying `status_code`,
@@ -230,6 +349,40 @@ Invalid input raises `SendlyValidationError`. Migrated routes report it as HTTP
 `422` with `error_code == "VALIDATION_ERROR"` and a per-field breakdown under
 `err.body["error"]["details"]["errors"]`; legacy/malformed requests still use
 `400`. Both surface as `SendlyValidationError`.
+
+### v1 errors (RFC 9457)
+
+The `/api/v1` surface reports failures as `application/problem+json` documents.
+They raise the **same** exception classes, keyed off the same statuses, so
+existing `except` blocks keep working. Three things move:
+
+- `error_code` comes from the problem's `code` — a lowercase, machine-readable
+  value like `scope_missing`, `quota_exhausted`, or `idempotency_key_reused`.
+- `err.request_id` carries the correlation id. Quote it in support requests.
+- `err.field_errors` carries the per-field breakdown on a `validation_error`,
+  each entry `{pointer, code, message}` with an RFC 6901 JSON Pointer.
+
+```python
+from sendly import Sendly, SendlyValidationError, SendlyRateLimitError
+
+sendly = Sendly()
+try:
+    sendly.campaigns.create({"name": "Launch"})
+except SendlyValidationError as err:
+    print(err.error_code, err.message, err.request_id)
+    for field in err.field_errors or []:
+        print(f"  {field['pointer']}: {field['message']}")
+except SendlyRateLimitError as err:
+    # Two different failures share this class — check the code before retrying.
+    if err.error_code == "quota_exhausted":
+        print("Plan limit reached; backing off will not help")
+    else:
+        print("Too fast — retry with backoff")
+```
+
+The full problem document stays on `err.body`, so `type`, `title` and `instance`
+remain reachable. On the legacy surface `request_id` and `field_errors` are
+`None`.
 
 ## Verifying webhooks
 

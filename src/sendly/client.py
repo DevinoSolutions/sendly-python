@@ -79,9 +79,8 @@ class Sendly:
     Construct once with an API key and reuse the resource accessors for all
     calls: ``emails``, ``contacts``, ``events``, ``domains``, ``templates``,
     ``verify``, ``webhooks``, ``suppression`` and ``lists`` on the legacy
-    surface, plus
-    ``campaigns``, ``segments``, ``workflows``, ``analytics`` and ``usage`` on
-    ``/api/v1``.
+    surface, plus ``campaigns``, ``segments``, ``workflows``, ``analytics`` and
+    ``usage`` on ``/api/v1``.
 
     Args:
         api_key: Project API key (``sk_*`` for full access, ``pk_*`` for
