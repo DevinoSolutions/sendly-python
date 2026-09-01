@@ -442,6 +442,36 @@ pytest
 
 Tests are fully hermetic (httpx `MockTransport`) and hit no network.
 
+### Refreshing the vendored OpenAPI spec
+
+`tests/fixtures/openapi.json` is a committed snapshot of Sendly's OpenAPI
+contract; the contract suite (`tests/test_contract.py`) verifies the SDK surface
+against it and never touches the network.
+
+`scripts/sync_spec.py` requires `SENDLY_OPENAPI_URL`. There is **no default**,
+and in particular it does not default to production:
+
+```bash
+SENDLY_OPENAPI_URL=/path/to/sendly/apps/web/openapi/openapi.json \
+    python scripts/sync_spec.py
+
+SENDLY_OPENAPI_URL=... python scripts/sync_spec.py --check   # is the copy stale?
+```
+
+`SENDLY_OPENAPI_URL` accepts a filesystem path (the normal case — the committed
+contract in the Sendly platform monorepo at `apps/web/openapi/openapi.json`) or
+an `http(s)://` URL of a local or staging API. Running the script with it unset
+exits non-zero and prints what to set.
+
+**Do not point it at `https://api.sendly.now`.** The SDK spec is synced from the
+committed contract, never live-synced from the deployed API: production serves
+whatever is deployed at that instant, which makes the vendored snapshot
+unreviewable and unreproducible.
+
+`--check` is the exception to the fail-loud rule: it never runs unattended
+against an unknown source, so with `SENDLY_OPENAPI_URL` unset it skips with a
+notice and exits 0, keeping CI and fork pull requests green.
+
 ## Documentation
 
 Full API reference: <https://docs.sendly.now>
