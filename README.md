@@ -463,10 +463,19 @@ contract in the Sendly platform monorepo at `apps/web/openapi/openapi.json`) or
 an `http(s)://` URL of a local or staging API. Running the script with it unset
 exits non-zero and prints what to set.
 
-**Do not point it at `https://api.sendly.now`.** The SDK spec is synced from the
-committed contract, never live-synced from the deployed API: production serves
-whatever is deployed at that instant, which makes the vendored snapshot
-unreviewable and unreproducible.
+**Do not point it at `https://api.sendly.now`.** Vendoring the spec from the
+deployed API makes the SDK mirror what is *running* rather than what the repo
+*declares*, so any drift between the platform's code and its committed contract
+is laundered into "correct" on the way in — the SDK re-vendors to match the
+deployment and the mismatch vanishes silently. That destroys the vendored spec's
+only job: it is the fixed reference `tests/test_contract.py` compares against, so
+an SDK synced from production can no longer detect the very drift it exists to
+catch. It is also unreproducible and unreviewable.
+
+This is not hard-blocked — "what does production actually serve?" is a legitimate
+one-off. Doing it prints an unmissable warning (and a CI annotation), because
+*quiet* is what made the old default dangerous, not the host. Never commit the
+result, and never wire that host into CI or any unattended job.
 
 `--check` is the exception to the fail-loud rule: it never runs unattended
 against an unknown source, so with `SENDLY_OPENAPI_URL` unset it skips with a

@@ -7,10 +7,28 @@ to ``tests/fixtures/openapi.json``. The contract test suite
 network, so this script is the single place where the vendored spec is refreshed.
 
 The source is **required** and comes from the ``SENDLY_OPENAPI_URL`` environment
-variable. There is deliberately no default: syncing the vendored spec from the
-live production API is forbidden by platform policy (see "Refreshing the vendored
-OpenAPI spec" in README.md), and a script that silently picks *some* remote when
-unconfigured is the same class of bug. ``SENDLY_OPENAPI_URL`` accepts either form:
+variable.
+
+WHY PRODUCTION IS BANNED AS A SOURCE -- this is the reason, not a superstition,
+and it is written down so nobody deletes the guardrail for lack of one:
+
+    Vendoring the spec from the deployed API makes the SDK mirror whatever is
+    RUNNING rather than what the repo DECLARES. Any drift between the platform's
+    code and its committed contract is then laundered into "correct" on the way
+    in -- the SDK re-vendors itself to match the deployment and the mismatch
+    disappears silently. That destroys the one job the vendored spec has: it is
+    the fixed reference ``tests/test_contract.py`` compares against, so an SDK
+    synced from production can no longer detect the very drift it exists to
+    catch. It is also unreproducible (two maintainers on the same commit can get
+    different files) and unreviewable (the diff traces to no merged change).
+
+So there is deliberately no default, and a script that silently picks *some*
+remote when unconfigured is the same class of bug. Production is NOT hard-blocked
+-- "what does production actually serve?" is a legitimate one-off check. It is
+made LOUD instead (see ``warn_if_production``), because quiet is the property
+that made the old default dangerous, not the host itself.
+
+``SENDLY_OPENAPI_URL`` accepts either form:
 
 * a filesystem path (absolute or relative) to a committed spec  -- normal case
 * an ``http(s)://`` URL of a local or staging API               -- occasional
@@ -46,6 +64,9 @@ SPEC_SOURCE_ENV = "SENDLY_OPENAPI_URL"
 
 #: Canonical location of the contract inside the Sendly platform monorepo.
 MONOREPO_SPEC_PATH = "apps/web/openapi/openapi.json"
+
+#: Host of the deployed production API. Never a legitimate unattended source.
+PRODUCTION_HOST = "api.sendly.now"
 
 #: Shown when no source is configured. Kept in step with sendly-js's
 #: scripts/spec-source.mjs so both SDKs report the same missing configuration
@@ -101,6 +122,53 @@ def _as_local_path(source: str) -> Path:
     return Path(source)
 
 
+def is_production_source(source: str) -> bool:
+    """True when the source is the deployed production API."""
+    if not _is_http(source):
+        return False
+    return (urlparse(source).hostname or "").lower() == PRODUCTION_HOST
+
+
+def warn_if_production(source: str) -> bool:
+    """Shout -- do not refuse -- when the resolved source is production.
+
+    A refusal would block the legitimate "verify what production actually
+    serves" one-off. What must not happen is this occurring QUIETLY, which is
+    exactly how the old default went unnoticed while running on every push,
+    every PR and a weekly cron. So it is unmissable in a scrolling log, and it
+    annotates the run when it happens inside GitHub Actions.
+    """
+    if not is_production_source(source):
+        return False
+
+    banner = "\n".join(
+        [
+            "!!!===========================================================================!!!",
+            "!!!  WARNING: reading the OpenAPI spec from PRODUCTION                        !!!",
+            f"!!!  {source}",
+            "!!!                                                                          !!!",
+            "!!!  This is the BANNED path. Vendoring a spec from the deployed API makes    !!!",
+            "!!!  the SDK mirror what is RUNNING instead of what the repo DECLARES, which  !!!",
+            "!!!  launders code-vs-contract drift into 'correct' and destroys the SDK's    !!!",
+            "!!!  ability to detect the very drift it exists to catch.                     !!!",
+            "!!!                                                                          !!!",
+            "!!!  Only ever do this as a DELIBERATE one-off (e.g. 'what does production    !!!",
+            "!!!  actually serve right now?'). NEVER commit the result, and never wire     !!!",
+            "!!!  this host into CI or any unattended job.                                 !!!",
+            "!!!===========================================================================!!!",
+        ]
+    )
+    print(banner, file=sys.stderr)
+
+    if os.environ.get("GITHUB_ACTIONS"):
+        print(
+            f"::warning title=OpenAPI spec read from PRODUCTION::{source} is the deployed API. "
+            'Syncing an SDK spec from production is banned -- it launders code-vs-contract drift into "correct". '
+            "An unattended job must never be pointed at this host."
+        )
+    return True
+
+
 def load_spec(source: str) -> dict[str, Any]:
     """Read and parse the OpenAPI document from ``source``. Fail loud on any error."""
     if _is_http(source):
@@ -148,6 +216,8 @@ def _operation_count(spec: dict[str, Any]) -> int:
 def write_spec() -> None:
     """Read the configured spec and overwrite the vendored copy."""
     source = spec_source()
+    # Loud, but not a refusal -- see warn_if_production.
+    warn_if_production(source)
     spec = load_spec(source)
     text = render(spec)
     SPEC_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -192,6 +262,9 @@ def check_spec() -> None:
             f"contract ({MONOREPO_SPEC_PATH} in the platform monorepo) to compare."
         )
         return
+    # This one matters most: it is the step that runs unattended in CI, so a
+    # production source here is precisely the thing that must never be quiet.
+    warn_if_production(source)
     if not SPEC_PATH.exists():
         _fail(f"vendored spec missing at {SPEC_PATH}; run `python scripts/sync_spec.py`")
     current = render(load_spec(source))
