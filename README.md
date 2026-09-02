@@ -1,8 +1,8 @@
 # Sendly Python SDK
 
 Official Python SDK for the [Sendly](https://sendly.now) REST API — transactional
-email, contacts, events, domains, templates, email verification, webhooks, and
-suppression.
+email, contacts, events, domains, templates, email verification, webhooks,
+suppression, and mailbox and project reads.
 
 [![CI](https://github.com/DevinoSolutions/sendly-python/actions/workflows/ci.yml/badge.svg)](https://github.com/DevinoSolutions/sendly-python/actions/workflows/ci.yml)
 
@@ -66,7 +66,11 @@ result = sendly.emails.send(
         "body": "<h1>Thanks for signing up!</h1>",
     }
 )
-print(result["id"])
+
+# One `emails` entry per recipient — an array `to` fans out to several. Each
+# entry's `email` is the id of the queued email record; poll `emails.get(id)`
+# for its delivery status. The legacy send reports no status of its own.
+print(result["emails"][0]["email"], result["timestamp"])
 ```
 
 Or pass the key explicitly:
@@ -160,10 +164,22 @@ browser to finish DNS setup at the registrar.
 Reads only — see [What the SDK does not expose](#what-the-sdk-does-not-expose).
 
 ```python
-sendly.mailboxes.list()                      # -> [mailbox, ...]
-sendly.mailboxes.get("mb_123")               # + IMAP/SMTP connection settings
-sendly.mailboxes.list_app_passwords("mb_123")  # metadata only, never the secret
+sendly.mailboxes.list()          # -> [mailbox, ...], not paginated
+detail = sendly.mailboxes.get("mb_123")
+
+# `settings` carries the IMAP and SMTP host, port, security and username.
+print(detail["settings"]["imap"]["host"], detail["settings"]["imap"]["port"])
+
+# Metadata only — `lastFour` is the one fragment of the secret that survives
+# creation, so a credential can be identified but not rebuilt.
+for pw in sendly.mailboxes.list_app_passwords("mb_123"):
+    print(pw["name"], pw["lastFour"], pw["lastUsedAt"])
 ```
+
+This lists the mailboxes themselves, never their contents — received messages
+are not part of the public API. The mailbox **password** is never returned by
+any of these reads; mailbox credentials are app passwords, created from the
+dashboard and shown once.
 
 ### Templates
 
@@ -298,7 +314,7 @@ Available on the six cursor-paginated listings: `campaigns.iter_list`,
 `events.list_names` / `events.stats` return a bounded aggregate rather than a
 cursor, so they have no iterator.
 
-### Segments, workflows, events, analytics, usage
+### Segments, workflows, events, analytics, usage, projects
 
 ```python
 segment = sendly.segments.create({"name": "Power users", "type": "DYNAMIC",
@@ -341,15 +357,40 @@ can poll on. It takes one recipient — use `cc`/`bcc` to copy others — instea
 fanning an array out.
 
 ```python
-receipt = sendly.emails.send_v1({"to": "user@example.com", "subject": "hi", "body": "<p>hi</p>"})
+receipt = sendly.emails.send_v1(
+    {"to": "user@example.com", "subject": "hi", "body": "<p>hi</p>"},
+    idempotency_key="order-42",
+)
 print(receipt["status"])
-
-# Sends to the project's sandbox address; reaches no live recipient.
-sendly.emails.send_test_v1({"subject": "hi", "body": "<p>hi</p>"})
 ```
 
 Which of `send` / `send_v1` becomes the default is an open decision; nothing has
 been repointed.
+
+### Test sends
+
+`emails.send_test_v1` proves the send path works without touching a live
+recipient. Two things about it are easy to get backwards:
+
+- **The sandbox address is the *sender*, not the destination.** It is resolved
+  server-side, and naming a `from` yourself is **refused** rather than ignored —
+  so a request expecting a different sender never gets a success it would
+  misread. `projects.get()["sandbox_address"]` tells you what it sends *from*;
+  the response's `from` says the same thing.
+- **It lands in the project owner's own inbox.** `to` is optional and defaults
+  to the project owner's verified account email, which is the only address a
+  sandbox send may reach — any other value is refused.
+
+```python
+test = sendly.emails.send_test_v1({"subject": "hi", "body": "<p>hi</p>"})
+print(test["to"], test["from"], test["sandbox"])  # sandbox is always True here
+```
+
+Everything else applies unchanged: the same rendering, the same content scan,
+and the same daily and trust-tier caps as a real send. It takes no
+`idempotency_key` — the recipient is the caller's own inbox, a daily cap already
+bounds it, and "send me another one" is the normal second call rather than a
+mistake worth deduplicating.
 
 ### What the SDK does not expose
 

@@ -5,6 +5,44 @@ All notable changes to `sendly-python` are documented here. This project adheres
 
 ## [Unreleased]
 
+Covers the operations an API key can actually reach that the SDK did not yet
+expose. Purely additive — every existing method keeps its name, signature and
+behaviour.
+
+### Added
+
+- **`mailboxes` resource, reads only** — `list()`, `get(id)` (which carries the
+  IMAP/SMTP `settings` a mail client needs) and `list_app_passwords(id)`
+  (metadata only; the secret is never returned). The mailbox *writes* are not
+  missing but unreachable — see Notes.
+- **`projects.get()`** — the project the credential resolves to. Takes no id.
+  Carries `sandbox_address`, which no public route published before.
+- **`domains.start_setup(id)`** — begins the guided DNS hand-off and returns the
+  route's own `{token, connectUrl, expiresAt}`. Finishing setup means a person
+  opening `connectUrl`, so the SDK hands back the link rather than modelling the
+  flow behind it.
+- **`emails.send_v1()`** — the versioned send. Answers `202` with
+  `{id, status, to, from}`, so a caller can learn whether the message went
+  anywhere. Takes one recipient (`cc`/`bcc` copy others) and an optional
+  `idempotency_key`.
+- **`emails.send_test_v1()`** — sandbox test send. The sandbox address is the
+  *sender*; the mail lands in the project owner's own verified inbox. Naming a
+  `from` is refused rather than ignored. Takes no `idempotency_key`.
+
+### Notes
+
+- **`emails.send` is unchanged** and still posts to the legacy `POST /api/emails`,
+  which reports no delivery status. `send_v1` is added *beside* it, not in place
+  of it: the two return different things, so repointing the default would break
+  existing callers. Which becomes the default is a deliberate decision that has
+  not been taken. A test pins `send()` to the legacy path.
+- **Some operations are permanently not SDK-callable.** Creating and deleting a
+  mailbox, creating and revoking an app password, the API-key operations, and
+  creating a project all resolve the acting user from a session and answer `401`
+  to any API key. They are recorded in `tests/test_contract.py`'s
+  `NOT_SDK_CALLABLE`, which the suite asserts equals the set the contract itself
+  declares — in both directions. Use the dashboard or an OAuth connection.
+
 ## [0.2.0]
 
 Adds Sendly's `/api/v1` surface. Purely additive — every existing method keeps
