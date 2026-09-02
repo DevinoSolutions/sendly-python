@@ -58,7 +58,7 @@ from sendly import Sendly
 
 sendly = Sendly()  # reads SENDLY_API_KEY
 
-result = sendly.emails.send(
+receipt = sendly.emails.send(
     {
         "from": "hello@yourdomain.com",
         "to": "customer@example.com",
@@ -67,11 +67,33 @@ result = sendly.emails.send(
     }
 )
 
-# One `emails` entry per recipient — an array `to` fans out to several. Each
-# entry's `email` is the id of the queued email record; poll `emails.get(id)`
-# for its delivery status. The legacy send reports no status of its own.
-print(result["emails"][0]["email"], result["timestamp"])
+# `status` is a real delivery state; poll `emails.get(receipt["id"])` for the
+# events behind it.
+print(receipt["id"], receipt["status"])
 ```
+
+### Upgrading from 0.x
+
+**1.0 repoints `emails.send` to the versioned `POST /api/v1/emails`.** It now
+takes one recipient (`cc`/`bcc` copy others) and returns the `202` receipt
+`{id, status, to, from}`, where `status` is a real delivery state. Before 1.0 it
+posted to the legacy `POST /api/emails`, fanned an array `to` out to several
+recipients, and returned `{emails, timestamp}` with no delivery status.
+
+The old behaviour is kept, unchanged, as `emails.send_legacy`. Two ways to
+upgrade:
+
+- **Keep the old shapes:** rename the call. `send(...)` → `send_legacy(...)`.
+  Done.
+- **Take the new default:** read the receipt instead of the envelope
+  (`receipt["id"]` / `receipt["status"]` in place of
+  `result["emails"][0]["email"]`), send to one recipient per call, and note that
+  failures now carry the v1 error fields (`err.error_code` is lowercase,
+  `err.request_id` and `err.field_errors` are set) — the exception classes are
+  the same, so `except` blocks stand.
+
+Nothing else changed shape. See [CHANGELOG.md](./CHANGELOG.md) for the full
+1.0.0 entry.
 
 Or pass the key explicitly:
 
@@ -106,9 +128,15 @@ with Sendly() as sendly:
 ### Emails
 
 ```python
-# Single send (pass idempotency_key to dedupe replays for 24h)
-sendly.emails.send({"from": "a@you.com", "to": "b@them.com", "subject": "Hi", "body": "<p>Hi</p>"},
-                   idempotency_key="order-42-receipt")
+# Single send on /api/v1 (pass idempotency_key to dedupe replays for 24h).
+# One recipient in `to`; `cc` / `bcc` copy others. Returns {id, status, to, from}.
+receipt = sendly.emails.send({"from": "a@you.com", "to": "b@them.com", "subject": "Hi", "body": "<p>Hi</p>"},
+                             idempotency_key="order-42-receipt")
+
+# The pre-1.0 send: legacy /api/emails, an array `to` fans out, answers
+# {emails, timestamp} with no delivery status.
+sendly.emails.send_legacy({"from": "a@you.com", "to": ["b@them.com", "c@them.com"],
+                           "subject": "Hi", "body": "<p>Hi</p>"})
 
 # Batch send (up to 100)
 sendly.emails.batch({"emails": [{"from": "a@you.com", "to": "b@them.com", "subject": "Hi", "body": "<p>Hi</p>"}]})
@@ -356,30 +384,28 @@ project = sendly.projects.get()
 print(project["sandbox_address"])
 ```
 
-### Emails: `send` vs `send_v1`
+### Emails: `send` vs `send_legacy`
 
-The same split as `events.track` / `events.record`, for the same reason.
-`emails.send` posts to the legacy `POST /api/emails` and is unchanged: it answers
-with row ids and **no delivery status**, so a caller cannot learn whether the
-message went anywhere. `emails.send_v1` posts to `/api/v1/emails` and answers
-`202` with `{id, status, to, from}`, where `status` is a real delivery state you
-can poll on. It takes one recipient — use `cc`/`bcc` to copy others — instead of
-fanning an array out.
+The same split as `events.track` / `events.record`, resolved the other way
+round: since 1.0, `emails.send` IS the versioned send. It posts to
+`/api/v1/emails` and answers `202` with `{id, status, to, from}`, where `status`
+is a real delivery state you can poll on. It takes one recipient — use
+`cc`/`bcc` to copy others — instead of fanning an array out.
+`emails.send_legacy` is the pre-1.0 send on `POST /api/emails`, unchanged: row
+ids, **no delivery status**, array `to` fanned out. See
+[Upgrading from 0.x](#upgrading-from-0x).
 
 ```python
-receipt = sendly.emails.send_v1(
+receipt = sendly.emails.send(
     {"to": "user@example.com", "subject": "hi", "body": "<p>hi</p>"},
     idempotency_key="order-42",
 )
 print(receipt["status"])
 ```
 
-Which of `send` / `send_v1` becomes the default is an open decision; nothing has
-been repointed.
-
 ### Test sends
 
-`emails.send_test_v1` proves the send path works without touching a live
+`emails.send_test` proves the send path works without touching a live
 recipient. Two things about it are easy to get backwards:
 
 - **The sandbox address is the *sender*, not the destination.** It is resolved
@@ -392,7 +418,7 @@ recipient. Two things about it are easy to get backwards:
   sandbox send may reach — any other value is refused.
 
 ```python
-test = sendly.emails.send_test_v1({"subject": "hi", "body": "<p>hi</p>"})
+test = sendly.emails.send_test({"subject": "hi", "body": "<p>hi</p>"})
 print(test["to"], test["from"], test["sandbox"])  # sandbox is always True here
 ```
 
@@ -529,7 +555,7 @@ comparison and reject a stale or non-numeric timestamp.
 
 ## Async
 
-Only a synchronous client ships in v0.1. An `httpx.AsyncClient`-backed async
+Only a synchronous client ships today. An `httpx.AsyncClient`-backed async
 variant is planned.
 
 ## Development

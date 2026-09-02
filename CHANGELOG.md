@@ -3,14 +3,44 @@
 All notable changes to `sendly-python` are documented here. This project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.0.0] - 2026-09-02
 
-Covers the operations an API key can actually reach that the SDK did not yet
-expose. Purely additive — every existing method keeps its name, signature and
-behaviour.
+The default send moves to the versioned API. Everything else in this release is
+additive: the operations an API key can actually reach that the SDK did not yet
+expose.
+
+### Breaking
+
+- **`emails.send()` now posts to `POST /api/v1/emails`** and returns the bare
+  `202` receipt, `{id, status, to, from}`, where `status` is a real delivery
+  state. Before 1.0 it posted to the legacy `POST /api/emails`, which answered
+  with row ids and **no** delivery status, and fanned an array `to` out to
+  several recipients. What changes for a caller:
+  - one recipient in `to`, with `cc` / `bcc` to copy others (an array `to` is
+    no longer accepted);
+  - the result is the receipt, not `{emails, timestamp}` — read
+    `receipt["id"]` and `receipt["status"]` instead of
+    `result["emails"][0]["email"]`;
+  - failures arrive as RFC 9457 problem documents, raised as the **same**
+    exception classes, so `except` blocks are unchanged; `err.error_code` is now
+    the lowercase v1 registry value (`validation_error`, not
+    `VALIDATION_ERROR`) and `err.request_id` / `err.field_errors` are populated.
+
+  The pre-1.0 behaviour is kept, unchanged, as **`emails.send_legacy()`** — the
+  escape hatch for a caller that depends on the fan-out or the envelope.
+  Renaming a call from `send` to `send_legacy` is a complete migration; adopting
+  the new default means reading the receipt instead of the envelope.
+
+  Why now: the legacy send cannot tell a caller whether a message went anywhere,
+  and the versioned one can. Nothing is published against 0.x, so the cost of
+  the move is lowest today and only rises.
 
 ### Added
 
+- **`emails.send_legacy()`** — the pre-1.0 `send()`, byte for byte. See Breaking.
+- **`emails.send_test()`** — sandbox test send. The sandbox address is the
+  *sender*; the mail lands in the project owner's own verified inbox. Naming a
+  `from` is refused rather than ignored. Takes no `idempotency_key`.
 - **`mailboxes` resource, reads only** — `list()`, `get(id)` (which carries the
   IMAP/SMTP `settings` a mail client needs) and `list_app_passwords(id)`
   (metadata only; the secret is never returned). The mailbox *writes* are not
@@ -21,21 +51,13 @@ behaviour.
   route's own `{token, connectUrl, expiresAt}`. Finishing setup means a person
   opening `connectUrl`, so the SDK hands back the link rather than modelling the
   flow behind it.
-- **`emails.send_v1()`** — the versioned send. Answers `202` with
-  `{id, status, to, from}`, so a caller can learn whether the message went
-  anywhere. Takes one recipient (`cc`/`bcc` copy others) and an optional
-  `idempotency_key`.
-- **`emails.send_test_v1()`** — sandbox test send. The sandbox address is the
-  *sender*; the mail lands in the project owner's own verified inbox. Naming a
-  `from` is refused rather than ignored. Takes no `idempotency_key`.
 
 ### Notes
 
-- **`emails.send` is unchanged** and still posts to the legacy `POST /api/emails`,
-  which reports no delivery status. `send_v1` is added *beside* it, not in place
-  of it: the two return different things, so repointing the default would break
-  existing callers. Which becomes the default is a deliberate decision that has
-  not been taken. A test pins `send()` to the legacy path.
+- **`send_v1` and `send_test_v1` never shipped.** They existed briefly on `main`
+  between 0.2.0 and this release as the additive step before the repoint, and
+  are folded into `send` and `send_test` here. If you installed from GitHub in
+  that window, rename the calls.
 - **Some operations are permanently not SDK-callable.** Creating and deleting a
   mailbox, creating and revoking an app password, the API-key operations, and
   creating a project all resolve the acting user from a session and answer `401`

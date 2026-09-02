@@ -427,9 +427,14 @@ def test_core_operations_forward_a_body_and_match_required_fields():
     # point forwards a body and that the spec still declares the core required
     # field the caller's body must carry.
     assert "body" in inspect.signature(resources["emails"].send).parameters
+    assert "body" in inspect.signature(resources["emails"].send_legacy).parameters
     assert "body" in inspect.signature(resources["contacts"].create).parameters
+    # 1.0: `send` is the versioned send; `send_legacy` keeps the pre-1.0 route.
+    assert "to" in _required_fields(spec, "/api/v1/emails", "post"), (
+        "the v1 send no longer requires 'to' in the spec -- revisit emails.send."
+    )
     assert "to" in _required_fields(spec, "/api/emails", "post"), (
-        "sendEmail no longer requires 'to' in the spec -- revisit emails.send."
+        "the legacy send no longer requires 'to' in the spec -- revisit emails.send_legacy."
     )
     assert "email" in _required_fields(spec, "/api/contacts", "post"), (
         "createContact no longer requires 'email' in the spec -- revisit contacts.create."

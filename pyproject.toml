@@ -8,7 +8,7 @@ build-backend = "hatchling.build"
 # the PyPI trusted-publisher configuration). The import package is
 # unchanged (`import sendly`) — see [tool.hatch.build.targets.wheel] below.
 name = "sendly-python"
-version = "0.2.0"
+version = "1.0.0"
 description = "Official Sendly Python SDK"
 readme = "README.md"
 requires-python = ">=3.10"

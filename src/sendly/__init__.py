@@ -3,9 +3,11 @@
 Example:
     >>> from sendly import Sendly
     >>> sendly = Sendly()  # reads SENDLY_API_KEY
-    >>> sendly.emails.send(
+    >>> receipt = sendly.emails.send(
     ...     {"from": "a@b.com", "to": "c@d.com", "subject": "hi", "body": "<p>hi</p>"}
     ... )
+    >>> receipt["status"]  # a real delivery state; poll emails.get(receipt["id"])
+    'PENDING'
 
 The same client also speaks the ``/api/v1`` surface — campaigns, segments,
 workflows, analytics, usage, and the v1 event methods:
