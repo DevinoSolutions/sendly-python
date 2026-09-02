@@ -179,7 +179,17 @@ for pw in sendly.mailboxes.list_app_passwords("mb_123"):
 This lists the mailboxes themselves, never their contents — received messages
 are not part of the public API. The mailbox **password** is never returned by
 any of these reads; mailbox credentials are app passwords, created from the
-dashboard and shown once.
+dashboard and shown once. `list_app_passwords` returns only the passwords that
+are still active — a revoked one drops out, so this is not an audit history.
+
+**The per-project cap is 10 mailboxes.** It counts only those holding, or
+mid-way to holding, a real account — `PROVISIONING`, `ACTIVE` and `SUSPENDED`.
+`FAILED` rows are excluded on purpose, so that a burst of failed provisions
+cannot eat a project's allowance and turn an outage into "you have reached your
+mailbox limit"; they are still returned by `list()`, so a project that has had
+failures can list more than 10. Exceeding the cap is a `409`
+(`SendlyConflictError`) from whatever creates the mailbox — which is not this
+SDK, since mailbox creation needs a signed-in user.
 
 ### Templates
 

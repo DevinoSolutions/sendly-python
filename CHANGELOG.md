@@ -42,6 +42,11 @@ behaviour.
   to any API key. They are recorded in `tests/test_contract.py`'s
   `NOT_SDK_CALLABLE`, which the suite asserts equals the set the contract itself
   declares — in both directions. Use the dashboard or an OAuth connection.
+- **A project is capped at 10 mailboxes**, counting only ``PROVISIONING``,
+  ``ACTIVE`` and ``SUSPENDED``. ``FAILED`` rows are excluded from the cap but
+  are still returned by ``mailboxes.list()``, so a project that has had failed
+  provisions can list more than 10 — the ``list()`` docstring said "at most 10"
+  without that distinction and now states it.
 
 ## [0.2.0]
 
