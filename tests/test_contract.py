@@ -5,8 +5,11 @@ touch the network -- refresh it with ``python scripts/sync_spec.py``. They asser
 bidirectional coverage, fail-closed:
 
 * every spec operation is either implemented by a resource method or explicitly
-  listed in :data:`NOT_YET_IMPLEMENTED` (and listed entries must be real,
-  still-unimplemented spec operations -- stale entries fail the suite);
+  listed in :data:`NOT_YET_IMPLEMENTED` (a gap) or :data:`NOT_SDK_CALLABLE` (an
+  operation no API key can reach) -- and listed entries must be real,
+  still-unimplemented spec operations, so stale entries fail the suite;
+* :data:`NOT_SDK_CALLABLE` equals the set of operations the contract says refuse
+  an API key, checked in both directions rather than trusted;
 * every SDK call site maps to a real spec operation (catches SDK-vs-API drift);
 * the core send/create operations forward a request body and the spec still
   declares the required field each depends on.
@@ -28,6 +31,8 @@ import textwrap
 from pathlib import Path
 from typing import Any
 
+import pytest
+
 from sendly import Sendly
 
 FIXTURE_PATH = Path(__file__).resolve().parent / "fixtures" / "openapi.json"
@@ -37,43 +42,46 @@ HTTP_METHODS = frozenset({"get", "post", "put", "patch", "delete", "head", "opti
 
 _PARAM_RE = re.compile(r"\{[^}]*\}")
 
-#: Spec operations the SDK intentionally does not expose yet. Every entry is
-#: asserted to (a) exist in the vendored spec and (b) NOT be implemented by any
-#: resource method, so a stale entry -- added by mistake or left behind after the
-#: SDK grows a wrapper -- fails the suite.
+#: Spec operations the SDK does not expose, in two kinds -- because "we have not
+#: got to it" and "this can never work" are different facts, and collapsing them
+#: means the second nags forever as if it were the first. Both are fail-closed:
+#: every entry is asserted to exist in the vendored spec and to NOT be
+#: implemented, so a stale entry fails the suite.
 #:
-#: These arrived with the platform's WP6 (API-key create/rotate, domain setup
-#: handoff) and WP9 (mailboxes) work. Each needs a new resource with a designed
-#: public surface -- method names, argument shapes, pagination -- which is an API
-#: decision rather than spec fallout, so the vendored spec is carried forward at
-#: full fidelity and the surface is listed here instead of being guessed at.
-#: Removing an entry means shipping the method. Kept in step with sendly-js's
-#: NOT_YET_IMPLEMENTED in src/__tests__/contract.test.ts.
-NOT_YET_IMPLEMENTED: set[tuple[str, str]] = {
-    # Mailboxes (WP9) -- no `mailboxes` resource exists yet.
-    ("GET", "/api/mailboxes"),
+#: NOT YET -- a genuine gap. Empty: every key-callable operation is now mapped to
+#: a resource method. Retained as the seam for future spec additions. Kept in
+#: step with sendly-js's NOT_YET_IMPLEMENTED.
+NOT_YET_IMPLEMENTED: set[tuple[str, str]] = set()
+
+#: NEVER, by construction -- the credential this SDK uses cannot call these.
+#:
+#: Each resolves the acting user (usually a project admin) from the session, and
+#: an API-key context carries no user, so the route answers 401
+#: ``NOT_AUTHENTICATED`` before reading a scope. This SDK authenticates only with
+#: ``sk_``/``pk_`` keys. Shipping methods for these would publish capabilities
+#: the credential cannot use -- the same defect, one layer out, as an operation
+#: advertising a credential its route refuses.
+#:
+#: Not a hand-maintained opinion: the contract states this in machine-readable
+#: form. These operations publish ``SessionAuth`` and ``OAuth2`` but NOT
+#: ``ApiKeyAuth``, and the test below checks the list EQUALS that set, in both
+#: directions. If one ever becomes key-callable, the spec gains ``ApiKeyAuth``
+#: and the suite says to come build the method.
+NOT_SDK_CALLABLE: set[tuple[str, str]] = {
+    # Mailbox writes. The three mailbox READS are implemented -- their
+    # membership check is conditional, so a key really can call them.
     ("POST", "/api/mailboxes"),
-    ("GET", "/api/mailboxes/{id}"),
     ("DELETE", "/api/mailboxes/{id}"),
-    ("GET", "/api/mailboxes/{id}/app-passwords"),
     ("POST", "/api/mailboxes/{id}/app-passwords"),
     ("DELETE", "/api/mailboxes/{id}/app-passwords/{passwordId}"),
-    # API keys (WP6) -- no `api_keys` resource yet.
+    # Every api-key operation, reads included: all four guard unconditionally.
+    # An API key cannot mint, rotate, list or revoke an API key.
     ("GET", "/api/projects/{id}/api-keys"),
     ("POST", "/api/projects/{id}/api-keys"),
     ("DELETE", "/api/projects/{id}/api-keys/{keyId}"),
     ("POST", "/api/projects/{id}/api-keys/{keyId}/rotate"),
-    # Projects -- no `projects` resource yet.
-    ("GET", "/api/v1/projects"),
+    # A project is created FOR a user; there is nothing for a key to act as.
     ("POST", "/api/users/me/projects"),
-    # Domain setup handoff (WP6) -- belongs on the existing `domains` resource,
-    # but the handoff's return shape is a product decision, not a mapping.
-    ("POST", "/api/domains/{id}/dodomain-session"),
-    # v1 email send. `emails.send()` is still bound to the legacy no-status
-    # `POST /api/emails`; moving it is a breaking change, bundled with the
-    # MCP-vs-SDK naming pass rather than done piecemeal here.
-    ("POST", "/api/v1/emails"),
-    ("POST", "/api/v1/emails/test"),
 }
 
 
@@ -257,7 +265,9 @@ def test_introspection_is_not_vacuous():
 def test_every_spec_operation_is_implemented_or_listed():
     spec = _load_spec()
     implemented = {(verb, norm) for verb, norm, _ in _sdk_operations()}
-    listed = {(verb, _normalize_path(path)) for verb, path in NOT_YET_IMPLEMENTED}
+    listed = {
+        (verb, _normalize_path(path)) for verb, path in (NOT_YET_IMPLEMENTED | NOT_SDK_CALLABLE)
+    }
     unhandled = sorted(
         f"{verb} {path}"
         for verb, path, norm in _spec_operations(spec)
@@ -265,25 +275,68 @@ def test_every_spec_operation_is_implemented_or_listed():
     )
     assert not unhandled, (
         "Spec operations neither implemented by the SDK nor listed in "
-        "NOT_YET_IMPLEMENTED. Add a resource method or list them explicitly:\n  "
-        + "\n  ".join(unhandled)
+        "NOT_YET_IMPLEMENTED / NOT_SDK_CALLABLE. Add a resource method or list "
+        "them explicitly:\n  " + "\n  ".join(unhandled)
     )
 
 
-def test_not_yet_implemented_entries_are_real_and_unimplemented():
+@pytest.mark.parametrize(
+    ("listing", "name"),
+    [(NOT_YET_IMPLEMENTED, "NOT_YET_IMPLEMENTED"), (NOT_SDK_CALLABLE, "NOT_SDK_CALLABLE")],
+)
+def test_listed_entries_are_real_and_unimplemented(listing: set[tuple[str, str]], name: str):
     spec = _load_spec()
     spec_ops = {(verb, norm) for verb, _path, norm in _spec_operations(spec)}
     implemented = {(verb, norm) for verb, norm, _ in _sdk_operations()}
-    for verb, path in sorted(NOT_YET_IMPLEMENTED):
+    for verb, path in sorted(listing):
         norm = _normalize_path(path)
         assert (verb, norm) in spec_ops, (
-            f"NOT_YET_IMPLEMENTED lists {verb} {path}, which is absent from the "
-            "vendored spec. Remove the stale entry (or re-sync the spec)."
+            f"{name} lists {verb} {path}, which is absent from the vendored "
+            "spec. Remove the stale entry (or re-sync the spec)."
         )
         assert (verb, norm) not in implemented, (
-            f"NOT_YET_IMPLEMENTED lists {verb} {path}, but the SDK now implements "
-            "it. Remove it from NOT_YET_IMPLEMENTED."
+            f"{name} lists {verb} {path}, but the SDK now implements it. Remove it from {name}."
         )
+
+
+def test_not_sdk_callable_matches_the_contracts_own_declarations():
+    """The teeth: the list is checked against the spec, not trusted.
+
+    The contract says which operations an API key can reach -- an operation
+    publishing ``ApiKeyAuth`` accepts one, and an operation publishing only
+    ``SessionAuth``/``OAuth2`` refuses it. Both directions matter: an entry that
+    IS key-callable should be built instead of excused, and an operation that
+    refuses keys and is missing from the list is an undocumented dead end for
+    every consumer of this SDK.
+    """
+    spec = _load_spec()
+    listed = {(verb, _normalize_path(path)) for verb, path in NOT_SDK_CALLABLE}
+
+    listed_but_callable: list[str] = []
+    refuses_key_but_unlisted: list[str] = []
+    for verb, path, norm in _spec_operations(spec):
+        security = spec["paths"][path][verb.lower()].get("security", [])
+        key_callable = any("ApiKeyAuth" in requirement for requirement in security)
+        if (verb, norm) in listed:
+            if key_callable:
+                listed_but_callable.append(f"{verb} {path}")
+        # An operation with NO security requirement at all is open (the verify
+        # routes), which is a different fact from refusing an API key. Excluded
+        # by that property rather than by name, so a new open route needs no
+        # edit here.
+        elif security and not key_callable:
+            refuses_key_but_unlisted.append(f"{verb} {path}")
+
+    assert not listed_but_callable, (
+        "NOT_SDK_CALLABLE lists operation(s) the contract says an API key CAN "
+        "call. Build the method instead of excusing it:\n  "
+        + "\n  ".join(sorted(listed_but_callable))
+    )
+    assert not refuses_key_but_unlisted, (
+        "Operation(s) that refuse an API key but are missing from "
+        "NOT_SDK_CALLABLE -- a silent dead end for anyone reading this SDK:\n  "
+        + "\n  ".join(sorted(refuses_key_but_unlisted))
+    )
 
 
 def test_every_sdk_method_matches_a_spec_operation():

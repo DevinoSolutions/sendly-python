@@ -42,6 +42,11 @@ EmailRecord = JSONDict
 EmailListResponse = JSONDict
 EmailGetResponse = JSONDict
 
+# The versioned send. Distinct from the legacy aliases above, which post to
+# ``/api/emails`` and answer with row ids and no delivery status.
+EmailV1 = JSONDict
+EmailTestV1 = JSONDict
+
 # ---------- Contacts ----------
 
 ContactRecord = JSONDict
@@ -52,6 +57,25 @@ ContactListResponse = JSONDict
 DomainRecord = JSONDict
 DomainListResponse = JSONDict
 DomainVerificationStatus = JSONDict
+#: ``{token, connectUrl, expiresAt}`` -- the link a person opens to finish setup.
+DomainSetupSession = JSONDict
+
+# ---------- Mailboxes ----------
+
+MailboxRecord = JSONDict
+#: A mailbox plus the IMAP/SMTP host, port and username a mail client needs.
+MailboxDetail = JSONDict
+AppPasswordRecord = JSONDict
+#: The list aliases are not decoration: inside ``MailboxesResource`` the name
+#: ``list`` is the resource's own method, so a bare ``list[MailboxRecord]``
+#: annotation resolves to that method and fails type checking. Naming the list
+#: types here sidesteps the shadowing and keeps the annotations readable.
+MailboxList = list[JSONDict]
+AppPasswordList = list[JSONDict]
+
+# ---------- Projects (v1) ----------
+
+ProjectRecordV1 = JSONDict
 
 # ---------- Templates ----------
 

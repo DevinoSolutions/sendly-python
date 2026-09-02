@@ -8,6 +8,23 @@ from sendly import SendlyPermissionError
 from support import Recorder, json_response, make_client
 
 
+def test_start_setup_posts_the_session_route_and_returns_the_link_verbatim():
+    session = {
+        "token": "tok_abc",
+        "connectUrl": "https://dodomain.com/connect?token=tok_abc",
+        "expiresAt": "2026-09-01T01:00:00.000Z",
+    }
+    rec = Recorder(json_response(200, {"success": True, "data": session}))
+    client = make_client(rec)
+
+    result = client.domains.start_setup("dom_1")
+
+    assert str(rec.request.url) == "http://localhost/api/domains/dom_1/dodomain-session"
+    assert rec.request.method == "POST"
+    # Handed back as the route returns it -- the caller opens `connectUrl`.
+    assert result == session
+
+
 def test_create_posts_domains_and_unwraps():
     rec = Recorder(
         json_response(201, {"success": True, "data": {"id": "d_1", "name": "mail.example.com"}})

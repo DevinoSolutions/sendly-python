@@ -13,6 +13,8 @@ if TYPE_CHECKING:
         Body,
         EmailGetResponse,
         EmailListResponse,
+        EmailTestV1,
+        EmailV1,
         Query,
         SendEmailData,
         SuccessEmpty,
@@ -40,6 +42,43 @@ class EmailsResource:
         )
         data: SendEmailData | list[SendEmailData] = self._client.unwrap(envelope)
         return data
+
+    def send_v1(self, body: Body, *, idempotency_key: str | None = None) -> EmailV1:
+        """Send one email on the versioned ``/api/v1`` surface, reporting status.
+
+        ADDITIVE -- :meth:`send` is untouched and still posts to the legacy
+        ``/api/emails``. The two differ in what they can tell you: the legacy
+        send answers with row ids and no status, so a caller cannot learn
+        whether the message went anywhere; this one answers 202 with
+        ``{id, status, to, from}`` where ``status`` is a real delivery state.
+        It also takes a single recipient (use ``cc``/``bcc`` to copy others)
+        rather than fanning an array out.
+
+        Repointing :meth:`send` here would change what existing callers receive,
+        so it is deliberately not done as part of adding this. Which one becomes
+        the default is a breaking-change decision.
+        """
+        response: EmailV1 = self._client.request(
+            method="POST",
+            path="/api/v1/emails",
+            body=body,
+            headers=idempotency_headers(idempotency_key),
+        )
+        return response
+
+    def send_test_v1(self, body: Body) -> EmailTestV1:
+        """Send a test email to the project's sandbox address.
+
+        Goes nowhere real: delivery is to the sandbox, so this exercises
+        rendering and the send path without touching a live recipient or a
+        sending reputation. Read ``projects.get()["sandbox_address"]`` to know
+        where it lands -- the response's ``sandbox: true`` says only that it was
+        one.
+        """
+        response: EmailTestV1 = self._client.request(
+            method="POST", path="/api/v1/emails/test", body=body
+        )
+        return response
 
     def batch(self, body: Body, *, idempotency_key: str | None = None) -> BatchSendResponse:
         """Send a batch (up to 100) of transactional emails in one call."""

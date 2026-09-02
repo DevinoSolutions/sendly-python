@@ -12,6 +12,7 @@ if TYPE_CHECKING:
         Body,
         DomainListResponse,
         DomainRecord,
+        DomainSetupSession,
         DomainVerificationStatus,
     )
 
@@ -61,6 +62,21 @@ class DomainsResource:
         )
         status: DomainVerificationStatus = self._client.unwrap(envelope)
         return status
+
+    def start_setup(self, id: str) -> DomainSetupSession:
+        """Start the guided DNS setup hand-off for a domain.
+
+        Returns the session as the route returns it: a ``connectUrl`` to open in
+        a browser, the ``token`` that url carries, and ``expiresAt``. Nothing is
+        derived or reshaped -- finishing setup means a person visiting that url
+        and authorising the change at their registrar, so the SDK's job is to
+        hand back the link, not to model the flow behind it.
+        """
+        envelope = self._client.request(
+            method="POST", path=f"/api/domains/{encode_path_segment(id)}/dodomain-session"
+        )
+        session: DomainSetupSession = self._client.unwrap(envelope)
+        return session
 
     def delete(self, id: str) -> None:
         """Delete a domain."""

@@ -40,6 +40,8 @@ from sendly.resources.domains import DomainsResource
 from sendly.resources.emails import EmailsResource
 from sendly.resources.events import EventsResource
 from sendly.resources.lists import ListsResource
+from sendly.resources.mailboxes import MailboxesResource
+from sendly.resources.projects import ProjectsResource
 from sendly.resources.segments import SegmentsResource
 from sendly.resources.suppression import SuppressionResource
 from sendly.resources.templates import TemplatesResource
@@ -135,6 +137,8 @@ class Sendly:
         self.webhooks = WebhooksResource(self)
         self.suppression = SuppressionResource(self)
         self.lists = ListsResource(self)
+        # Reads only -- the mailbox writes need a user, which an API key is not.
+        self.mailboxes = MailboxesResource(self)
         # /api/v1 surface. Same client, same auth; bare resource bodies instead
         # of the legacy {success, data} envelope, and RFC 9457 problem errors.
         self.campaigns = CampaignsResource(self)
@@ -142,6 +146,7 @@ class Sendly:
         self.workflows = WorkflowsResource(self)
         self.analytics = AnalyticsResource(self)
         self.usage = UsageResource(self)
+        self.projects = ProjectsResource(self)
 
     def request(
         self,

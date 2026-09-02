@@ -9,6 +9,65 @@ import pytest
 from sendly import SendlyValidationError
 from support import Recorder, empty_response, json_response, make_client
 
+V1_RECEIPT = {"id": "em_1", "status": "PENDING", "to": "user@example.com", "from": "hi@acme.com"}
+
+
+def test_send_v1_posts_the_versioned_path_and_returns_a_delivery_status():
+    rec = Recorder(json_response(202, V1_RECEIPT))
+    client = make_client(rec)
+
+    receipt = client.emails.send_v1(
+        {"to": "user@example.com", "subject": "hi", "body": "<p>hi</p>"}
+    )
+
+    assert str(rec.request.url) == "http://localhost/api/v1/emails"
+    assert rec.request.method == "POST"
+    # The whole reason this exists: the legacy send reports no delivery status.
+    assert receipt["status"] == "PENDING"
+
+
+def test_send_v1_forwards_an_idempotency_key():
+    rec = Recorder(json_response(202, V1_RECEIPT))
+    client = make_client(rec)
+
+    client.emails.send_v1({"to": "user@example.com"}, idempotency_key="key-123")
+
+    assert rec.request.headers["Idempotency-Key"] == "key-123"
+
+
+def test_send_v1_leaves_the_legacy_send_pointed_at_the_old_path():
+    # Additive, not a migration: repointing send() would change what existing
+    # callers receive, and that is a breaking change taken deliberately or not
+    # at all. This is what makes "additive" checkable rather than claimed.
+    rec = Recorder(json_response(200, {"success": True, "data": {"emails": [], "timestamp": "t"}}))
+    client = make_client(rec)
+
+    client.emails.send({"to": "user@example.com"})
+
+    assert str(rec.request.url) == "http://localhost/api/emails"
+
+
+def test_send_test_v1_posts_to_the_sandbox_route():
+    rec = Recorder(
+        json_response(
+            202,
+            {
+                "id": "em_t1",
+                "status": "PENDING",
+                "to": "sandbox.proj_1@sendly.now",
+                "from": "hi@acme.com",
+                "sandbox": True,
+            },
+        )
+    )
+    client = make_client(rec)
+
+    receipt = client.emails.send_test_v1({"subject": "hi", "body": "<p>hi</p>"})
+
+    assert str(rec.request.url) == "http://localhost/api/v1/emails/test"
+    assert json.loads(rec.request.content) == {"subject": "hi", "body": "<p>hi</p>"}
+    assert receipt["sandbox"] is True
+
 
 def test_send_posts_emails_with_bearer_and_body():
     rec = Recorder(

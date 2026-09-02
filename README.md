@@ -148,7 +148,21 @@ sendly.domains.list()
 sendly.domains.get("d_123")
 sendly.domains.verify("d_123")
 sendly.domains.get_verification("d_123")
+sendly.domains.start_setup("d_123")  # -> {"token", "connectUrl", "expiresAt"}
 sendly.domains.delete("d_123")
+```
+
+`start_setup` returns the hand-off as the API returns it. Open `connectUrl` in a
+browser to finish DNS setup at the registrar.
+
+### Mailboxes
+
+Reads only — see [What the SDK does not expose](#what-the-sdk-does-not-expose).
+
+```python
+sendly.mailboxes.list()                      # -> [mailbox, ...]
+sendly.mailboxes.get("mb_123")               # + IMAP/SMTP connection settings
+sendly.mailboxes.list_app_passwords("mb_123")  # metadata only, never the secret
 ```
 
 ### Templates
@@ -311,7 +325,47 @@ sendly.analytics.top_campaigns({"limit": 5})
 
 usage = sendly.usage.get()
 print(usage["plan"], usage["monthly"])
+
+project = sendly.projects.get()
+print(project["sandbox_address"])
 ```
+
+### Emails: `send` vs `send_v1`
+
+The same split as `events.track` / `events.record`, for the same reason.
+`emails.send` posts to the legacy `POST /api/emails` and is unchanged: it answers
+with row ids and **no delivery status**, so a caller cannot learn whether the
+message went anywhere. `emails.send_v1` posts to `/api/v1/emails` and answers
+`202` with `{id, status, to, from}`, where `status` is a real delivery state you
+can poll on. It takes one recipient — use `cc`/`bcc` to copy others — instead of
+fanning an array out.
+
+```python
+receipt = sendly.emails.send_v1({"to": "user@example.com", "subject": "hi", "body": "<p>hi</p>"})
+print(receipt["status"])
+
+# Sends to the project's sandbox address; reaches no live recipient.
+sendly.emails.send_test_v1({"subject": "hi", "body": "<p>hi</p>"})
+```
+
+Which of `send` / `send_v1` becomes the default is an open decision; nothing has
+been repointed.
+
+### What the SDK does not expose
+
+An API key resolves no user, and a handful of routes resolve the acting project
+admin from the session before reading any scope — so they answer `401` to any
+key, however broad its scopes. The contract states this: those operations publish
+`SessionAuth` without `ApiKeyAuth`.
+
+Rather than ship methods that could never succeed, they are listed in
+`tests/test_contract.py`'s `NOT_SDK_CALLABLE` and checked against the spec's own
+declarations, in both directions. They are: creating and deleting a mailbox,
+creating and revoking an app password, all four API-key operations, and creating
+a project. Use the dashboard or an OAuth connection for those.
+
+Mailbox **reads** are exposed — their membership check is conditional, so a key
+really can call them.
 
 ## Error handling
 

@@ -35,6 +35,8 @@ from sendly.resources.domains import DomainsResource
 from sendly.resources.emails import EmailsResource
 from sendly.resources.events import EventsResource
 from sendly.resources.lists import ListsResource
+from sendly.resources.mailboxes import MailboxesResource
+from sendly.resources.projects import ProjectsResource
 from sendly.resources.segments import SegmentsResource
 from sendly.resources.suppression import SuppressionResource
 from sendly.resources.templates import TemplatesResource
@@ -57,6 +59,8 @@ __all__ = [
     "EmailsResource",
     "EventsResource",
     "ListsResource",
+    "MailboxesResource",
+    "ProjectsResource",
     "SegmentsResource",
     "Sendly",
     "SendlyAuthenticationError",
