@@ -7154,7 +7154,7 @@
     },
     "/api/mailboxes": {
       "get": {
-        "description": "Every mailbox on the authenticated project's domains, newest first. Not paginated — a project may hold at most 10 mailboxes.\n\nThis lists the mailboxes themselves, never their contents: the messages a mailbox has received are not part of the public API and are not covered by this scope.\n\nRequires the `mailboxes:read` scope — View the mailboxes on your domains and their settings.",
+        "description": "Every mailbox on the authenticated project's domains, newest first. Not paginated: a project is capped at ten mailboxes, and the cap counts only those holding — or on their way to holding — a real account (`PROVISIONING`, `ACTIVE`, `SUSPENDED`). `FAILED` rows do not consume the cap but ARE returned here, so a project that has had failed provisions can list more than ten.\n\nThis lists the mailboxes themselves, never their contents: the messages a mailbox has received are not part of the public API and are not covered by this scope.\n\nRequires the `mailboxes:read` scope — View the mailboxes on your domains and their settings.",
         "operationId": "listMailboxes",
         "responses": {
           "200": {
