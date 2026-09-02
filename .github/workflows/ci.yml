@@ -5,7 +5,9 @@ on:
     branches: [main]
   pull_request:
   schedule:
-    # Mondays 06:00 UTC -- surface live OpenAPI drift even without a push.
+    # Mondays 06:00 UTC -- surface OpenAPI drift even without a push. Only does
+    # anything once the SENDLY_OPENAPI_URL repository variable is set; see the
+    # drift step at the end of this file.
     - cron: "0 6 * * 1"
 
 # Public repo -> GitHub-hosted standard runners (free for public repos).
@@ -38,15 +40,25 @@ jobs:
         run: pytest tests/test_contract.py
       - name: Pytest
         run: pytest
-      # Non-blocking: diff the vendored spec against the live API so drift shows
-      # up as a warning annotation without failing the build. Runs once (on the
-      # newest interpreter) to avoid duplicate live fetches and annotations.
-      - name: Live OpenAPI drift check (non-blocking)
+      # Non-blocking: diff the vendored spec against the reference contract so
+      # drift shows up as a warning annotation without failing the build. Runs
+      # once (on the newest interpreter) to avoid duplicate reads and annotations.
+      #
+      # This step previously fetched https://api.sendly.now on every push, every
+      # pull request (forks included) and every weekly cron. Syncing the SDK spec
+      # from production is forbidden, so the source is now explicit: the step
+      # compares against whatever the SENDLY_OPENAPI_URL repository variable
+      # names, and SKIPS with a notice when that variable is unset. Until a
+      # maintainer sets it to a non-production contract, this step and the weekly
+      # schedule above are inert by design.
+      - name: OpenAPI drift check (non-blocking)
         id: spec_drift
         if: matrix.python-version == '3.13'
         continue-on-error: true
+        env:
+          SENDLY_OPENAPI_URL: ${{ vars.SENDLY_OPENAPI_URL }}
         run: python scripts/sync_spec.py --check
       - name: Annotate OpenAPI drift
         if: matrix.python-version == '3.13' && steps.spec_drift.outcome == 'failure'
         run: |
-          echo "::warning title=OpenAPI spec drift::Vendored tests/fixtures/openapi.json differs from the live spec at https://api.sendly.now/api/openapi.json. Run 'python scripts/sync_spec.py' and commit the refreshed copy."
+          echo "::warning title=OpenAPI spec drift::Vendored tests/fixtures/openapi.json differs from the contract at \$SENDLY_OPENAPI_URL. Run 'SENDLY_OPENAPI_URL=... python scripts/sync_spec.py' and commit the refreshed copy."

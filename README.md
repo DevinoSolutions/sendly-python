@@ -442,6 +442,45 @@ pytest
 
 Tests are fully hermetic (httpx `MockTransport`) and hit no network.
 
+### Refreshing the vendored OpenAPI spec
+
+`tests/fixtures/openapi.json` is a committed snapshot of Sendly's OpenAPI
+contract; the contract suite (`tests/test_contract.py`) verifies the SDK surface
+against it and never touches the network.
+
+`scripts/sync_spec.py` requires `SENDLY_OPENAPI_URL`. There is **no default**,
+and in particular it does not default to production:
+
+```bash
+SENDLY_OPENAPI_URL=/path/to/sendly/apps/web/openapi/openapi.json \
+    python scripts/sync_spec.py
+
+SENDLY_OPENAPI_URL=... python scripts/sync_spec.py --check   # is the copy stale?
+```
+
+`SENDLY_OPENAPI_URL` accepts a filesystem path (the normal case — the committed
+contract in the Sendly platform monorepo at `apps/web/openapi/openapi.json`) or
+an `http(s)://` URL of a local or staging API. Running the script with it unset
+exits non-zero and prints what to set.
+
+**Do not point it at `https://api.sendly.now`.** Vendoring the spec from the
+deployed API makes the SDK mirror what is *running* rather than what the repo
+*declares*, so any drift between the platform's code and its committed contract
+is laundered into "correct" on the way in — the SDK re-vendors to match the
+deployment and the mismatch vanishes silently. That destroys the vendored spec's
+only job: it is the fixed reference `tests/test_contract.py` compares against, so
+an SDK synced from production can no longer detect the very drift it exists to
+catch. It is also unreproducible and unreviewable.
+
+This is not hard-blocked — "what does production actually serve?" is a legitimate
+one-off. Doing it prints an unmissable warning (and a CI annotation), because
+*quiet* is what made the old default dangerous, not the host. Never commit the
+result, and never wire that host into CI or any unattended job.
+
+`--check` is the exception to the fail-loud rule: it never runs unattended
+against an unknown source, so with `SENDLY_OPENAPI_URL` unset it skips with a
+notice and exits 0, keeping CI and fork pull requests green.
+
 ## Documentation
 
 Full API reference: <https://docs.sendly.now>
