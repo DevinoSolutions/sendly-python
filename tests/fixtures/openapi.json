@@ -7376,9 +7376,6 @@
         },
         "security": [
           {
-            "ApiKeyAuth": []
-          },
-          {
             "SessionAuth": []
           },
           {
@@ -7507,9 +7504,6 @@
           }
         },
         "security": [
-          {
-            "ApiKeyAuth": []
-          },
           {
             "SessionAuth": []
           },
@@ -8122,9 +8116,6 @@
         },
         "security": [
           {
-            "ApiKeyAuth": []
-          },
-          {
             "SessionAuth": []
           },
           {
@@ -8266,9 +8257,6 @@
         },
         "security": [
           {
-            "ApiKeyAuth": []
-          },
-          {
             "SessionAuth": []
           },
           {
@@ -8382,9 +8370,6 @@
           }
         },
         "security": [
-          {
-            "ApiKeyAuth": []
-          },
           {
             "SessionAuth": []
           },
@@ -8534,9 +8519,6 @@
           }
         },
         "security": [
-          {
-            "ApiKeyAuth": []
-          },
           {
             "SessionAuth": []
           },
@@ -9778,9 +9760,6 @@
           }
         },
         "security": [
-          {
-            "ApiKeyAuth": []
-          },
           {
             "SessionAuth": []
           },
