@@ -40,8 +40,41 @@ _PARAM_RE = re.compile(r"\{[^}]*\}")
 #: Spec operations the SDK intentionally does not expose yet. Every entry is
 #: asserted to (a) exist in the vendored spec and (b) NOT be implemented by any
 #: resource method, so a stale entry -- added by mistake or left behind after the
-#: SDK grows a wrapper -- fails the suite. Empty: the whole spec surface is wrapped.
-NOT_YET_IMPLEMENTED: set[tuple[str, str]] = set()
+#: SDK grows a wrapper -- fails the suite.
+#:
+#: These arrived with the platform's WP6 (API-key create/rotate, domain setup
+#: handoff) and WP9 (mailboxes) work. Each needs a new resource with a designed
+#: public surface -- method names, argument shapes, pagination -- which is an API
+#: decision rather than spec fallout, so the vendored spec is carried forward at
+#: full fidelity and the surface is listed here instead of being guessed at.
+#: Removing an entry means shipping the method. Kept in step with sendly-js's
+#: NOT_YET_IMPLEMENTED in src/__tests__/contract.test.ts.
+NOT_YET_IMPLEMENTED: set[tuple[str, str]] = {
+    # Mailboxes (WP9) -- no `mailboxes` resource exists yet.
+    ("GET", "/api/mailboxes"),
+    ("POST", "/api/mailboxes"),
+    ("GET", "/api/mailboxes/{id}"),
+    ("DELETE", "/api/mailboxes/{id}"),
+    ("GET", "/api/mailboxes/{id}/app-passwords"),
+    ("POST", "/api/mailboxes/{id}/app-passwords"),
+    ("DELETE", "/api/mailboxes/{id}/app-passwords/{passwordId}"),
+    # API keys (WP6) -- no `api_keys` resource yet.
+    ("GET", "/api/projects/{id}/api-keys"),
+    ("POST", "/api/projects/{id}/api-keys"),
+    ("DELETE", "/api/projects/{id}/api-keys/{keyId}"),
+    ("POST", "/api/projects/{id}/api-keys/{keyId}/rotate"),
+    # Projects -- no `projects` resource yet.
+    ("GET", "/api/v1/projects"),
+    ("POST", "/api/users/me/projects"),
+    # Domain setup handoff (WP6) -- belongs on the existing `domains` resource,
+    # but the handoff's return shape is a product decision, not a mapping.
+    ("POST", "/api/domains/{id}/dodomain-session"),
+    # v1 email send. `emails.send()` is still bound to the legacy no-status
+    # `POST /api/emails`; moving it is a breaking change, bundled with the
+    # MCP-vs-SDK naming pass rather than done piecemeal here.
+    ("POST", "/api/v1/emails"),
+    ("POST", "/api/v1/emails/test"),
+}
 
 
 # --------------------------------------------------------------------------- #

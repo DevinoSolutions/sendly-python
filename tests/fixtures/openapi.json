@@ -204,6 +204,209 @@
         ],
         "type": "object"
       },
+      "ApiKey": {
+        "description": "An API key's metadata. Never carries the token or its hash — `lastFour` is the only surviving fragment of the secret once the key has been created.",
+        "properties": {
+          "createdAt": {
+            "description": "ISO 8601 datetime string",
+            "format": "date-time",
+            "type": "string"
+          },
+          "domainId": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "lastFour": {
+            "description": "Last 4 characters of the token — the only fragment of the secret that survives creation.",
+            "type": "string"
+          },
+          "lastUsedAt": {
+            "description": "ISO 8601 datetime string",
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "permission": {
+            "enum": [
+              "FULL",
+              "SENDING_ONLY"
+            ],
+            "type": "string"
+          },
+          "projectId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "revokedAt": {
+            "description": "Set once the key is revoked. Revoked keys are NOT filtered out of list/get responses.",
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "scopes": {
+            "description": "The explicit scope grant this key carries. Empty on a key minted before this column existed — that row's grant is derived from `permission` instead at request time.",
+            "items": {
+              "enum": [
+                "emails:send",
+                "emails:read",
+                "contacts:read",
+                "contacts:write",
+                "campaigns:read",
+                "campaigns:write",
+                "segments:read",
+                "segments:write",
+                "workflows:read",
+                "workflows:write",
+                "templates:read",
+                "templates:write",
+                "domains:read",
+                "domains:write",
+                "webhooks:read",
+                "webhooks:write",
+                "suppression:read",
+                "suppression:write",
+                "analytics:read",
+                "usage:read",
+                "events:read",
+                "events:write",
+                "projects:read",
+                "projects:write",
+                "api-keys:read",
+                "api-keys:write",
+                "campaigns:send",
+                "mailboxes:read",
+                "mailboxes:write",
+                "emails:test"
+              ],
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "projectId",
+          "name",
+          "lastFour",
+          "permission",
+          "scopes",
+          "domainId",
+          "lastUsedAt",
+          "createdAt",
+          "revokedAt"
+        ],
+        "type": "object"
+      },
+      "ApiKeyListResponse": {
+        "description": "Every API key on the project, including revoked ones — filter on `revokedAt` for live keys.",
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/ApiKey"
+            },
+            "type": "array"
+          },
+          "success": {
+            "enum": [
+              true
+            ],
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success",
+          "data"
+        ],
+        "type": "object"
+      },
+      "AppPassword": {
+        "description": "An IMAP/SMTP credential for one mailbox, described but never reproduced.",
+        "properties": {
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "lastFour": {
+            "description": "The last four characters of the secret — enough to tell two credentials apart, and nothing more.",
+            "type": "string"
+          },
+          "lastUsedAt": {
+            "description": "Null until a mail client has authenticated with it at least once.",
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "name": {
+            "description": "What the credential is for, e.g. `Thunderbird on my laptop`.",
+            "type": "string"
+          },
+          "scopes": {
+            "description": "Which protocols this password may authenticate. `imap` reads, `smtp` sends.",
+            "items": {
+              "enum": [
+                "imap",
+                "smtp"
+              ],
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "scopes",
+          "lastFour",
+          "lastUsedAt",
+          "createdAt"
+        ],
+        "type": "object"
+      },
+      "AppPasswordReveal": {
+        "description": "A newly created app password, handed over as a one-time link rather than as a secret.",
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "revealExpiresAt": {
+            "description": "When the link stops working. Five minutes after creation; the password itself does not expire.",
+            "format": "date-time",
+            "type": "string"
+          },
+          "revealUrl": {
+            "description": "A single-use link that shows the password once, in a browser. Opening it requires a signed-in Sendly session belonging to a project admin — the connection that created the password cannot open it, and the second attempt to open it fails whoever makes it.",
+            "format": "uri",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "revealUrl",
+          "revealExpiresAt"
+        ],
+        "type": "object"
+      },
       "BatchEntryResult": {
         "description": "Per-row result in a batch send response.",
         "properties": {
@@ -377,9 +580,7 @@
         "description": "Body for POST /api/v1/campaigns. `segment_id` is required when `audience_type` is `SEGMENT`, and `audience_condition` is required when it is `FILTERED`.",
         "properties": {
           "audience_condition": {
-            "additionalProperties": {},
-            "description": "Filter condition: `{ logic: \"AND\" | \"OR\", groups: [{ filters: [{ field, operator, value?, unit? }], conditions?: <nested condition> }] }`. `field` addresses a contact column or a `customFields.<key>` path; `operator` is one of the segment operators (equals, notEquals, contains, greaterThan, lessThan, within, exists, …). Groups combine with `logic`; filters inside one group always combine with AND.",
-            "type": "object"
+            "$ref": "#/components/schemas/FilterConditionV1"
           },
           "audience_type": {
             "description": "`ALL` — every subscribed contact. `FILTERED` — the contacts matching `audience_condition`. `SEGMENT` — the members of `segment_id`.",
@@ -500,7 +701,7 @@
         "description": "Body for POST /api/v1/campaigns/{id}/send.",
         "properties": {
           "scheduled_for": {
-            "description": "RFC 3339 timestamp, strictly in the future. Omit to start sending immediately.",
+            "description": "RFC 3339 timestamp, strictly in the future. A numeric UTC offset (`+02:00`) is accepted as well as `Z`. Omit to start sending immediately.",
             "format": "date-time",
             "type": "string"
           }
@@ -559,9 +760,7 @@
         "description": "Body for PATCH /api/v1/campaigns/{id}. All fields optional.",
         "properties": {
           "audience_condition": {
-            "additionalProperties": {},
-            "description": "Filter condition: `{ logic: \"AND\" | \"OR\", groups: [{ filters: [{ field, operator, value?, unit? }], conditions?: <nested condition> }] }`. `field` addresses a contact column or a `customFields.<key>` path; `operator` is one of the segment operators (equals, notEquals, contains, greaterThan, lessThan, within, exists, …). Groups combine with `logic`; filters inside one group always combine with AND.",
-            "type": "object"
+            "$ref": "#/components/schemas/FilterConditionV1"
           },
           "audience_type": {
             "enum": [
@@ -753,6 +952,101 @@
         ],
         "type": "object"
       },
+      "CreateApiKeyBody": {
+        "properties": {
+          "domainId": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "name": {
+            "maxLength": 120,
+            "minLength": 1,
+            "type": "string"
+          },
+          "permission": {
+            "enum": [
+              "FULL",
+              "SENDING_ONLY"
+            ],
+            "type": "string"
+          },
+          "scopes": {
+            "description": "The explicit grant the new key will carry. Omitted ⇒ materialised from `permission`. A `SENDING_ONLY` key may carry only `emails:send`.",
+            "items": {
+              "enum": [
+                "emails:send",
+                "emails:read",
+                "contacts:read",
+                "contacts:write",
+                "campaigns:read",
+                "campaigns:write",
+                "segments:read",
+                "segments:write",
+                "workflows:read",
+                "workflows:write",
+                "templates:read",
+                "templates:write",
+                "domains:read",
+                "domains:write",
+                "webhooks:read",
+                "webhooks:write",
+                "suppression:read",
+                "suppression:write",
+                "analytics:read",
+                "usage:read",
+                "events:read",
+                "events:write",
+                "projects:read",
+                "projects:write",
+                "api-keys:read",
+                "api-keys:write",
+                "campaigns:send",
+                "mailboxes:read",
+                "mailboxes:write",
+                "emails:test"
+              ],
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "type": "object"
+      },
+      "CreateAppPassword": {
+        "description": "Body for POST /api/mailboxes/:id/app-passwords.",
+        "properties": {
+          "name": {
+            "maxLength": 60,
+            "minLength": 1,
+            "type": "string"
+          },
+          "scopes": {
+            "default": [
+              "imap",
+              "smtp"
+            ],
+            "items": {
+              "enum": [
+                "imap",
+                "smtp"
+              ],
+              "type": "string"
+            },
+            "minItems": 1,
+            "type": "array"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "type": "object"
+      },
       "CreateContact": {
         "description": "Body for POST /api/contacts and /api/contacts/upsert.",
         "properties": {
@@ -772,6 +1066,40 @@
         },
         "required": [
           "email"
+        ],
+        "type": "object"
+      },
+      "CreateMailboxBody": {
+        "properties": {
+          "displayName": {
+            "maxLength": 120,
+            "type": "string"
+          },
+          "domainId": {
+            "description": "A VERIFIED domain belonging to this project.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "localPart": {
+            "description": "The part before the `@`, e.g. `support`. Lowercased server-side.",
+            "maxLength": 64,
+            "minLength": 1,
+            "type": "string"
+          },
+          "projectId": {
+            "description": "Defaults to the project the credential resolves to. Naming a different one is refused.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "quotaBytes": {
+            "description": "NOT IMPLEMENTED — sending any value answers 400.",
+            "exclusiveMinimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "domainId",
+          "localPart"
         ],
         "type": "object"
       },
@@ -1151,6 +1479,108 @@
         ],
         "type": "object"
       },
+      "EmailTestV1": {
+        "description": "Receipt for a sandbox test send.",
+        "properties": {
+          "from": {
+            "description": "This project's sandbox sender — resolved server-side, never from the body.",
+            "format": "email",
+            "type": "string"
+          },
+          "id": {
+            "description": "The Email row this send created.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "sandbox": {
+            "description": "Always true. It is here so a model relaying this result cannot describe a test send as a real one: the message came from the shared sandbox domain and could only reach the project owner's own inbox.",
+            "enum": [
+              true
+            ],
+            "type": "boolean"
+          },
+          "status": {
+            "description": "Delivery status at the moment of the response — `PENDING` for a send still queued.",
+            "enum": [
+              "PENDING",
+              "SENDING",
+              "SENT",
+              "DELIVERED",
+              "RECEIVED",
+              "OPENED",
+              "CLICKED",
+              "BOUNCED",
+              "COMPLAINED",
+              "FAILED",
+              "REJECTED",
+              "RENDERING_FAILURE",
+              "DELIVERY_DELAY",
+              "CANCELLED"
+            ],
+            "type": "string"
+          },
+          "to": {
+            "description": "The recipient the message was queued for.",
+            "format": "email",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "to",
+          "from",
+          "sandbox"
+        ],
+        "type": "object"
+      },
+      "EmailV1": {
+        "description": "Receipt for a single transactional send.",
+        "properties": {
+          "from": {
+            "description": "The sender actually used. Worth reading rather than assuming: it is resolved server-side and may come from the template when the request named none.",
+            "format": "email",
+            "type": "string"
+          },
+          "id": {
+            "description": "The Email row this send created. Quote it in support requests.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "status": {
+            "description": "Delivery status at the moment of the response — `PENDING` for a send the worker has not picked up yet, which is the usual answer. Later states arrive via webhooks, not here.",
+            "enum": [
+              "PENDING",
+              "SENDING",
+              "SENT",
+              "DELIVERED",
+              "RECEIVED",
+              "OPENED",
+              "CLICKED",
+              "BOUNCED",
+              "COMPLAINED",
+              "FAILED",
+              "REJECTED",
+              "RENDERING_FAILURE",
+              "DELIVERY_DELAY",
+              "CANCELLED"
+            ],
+            "type": "string"
+          },
+          "to": {
+            "description": "The recipient the message was queued for.",
+            "format": "email",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "to",
+          "from"
+        ],
+        "type": "object"
+      },
       "Error": {
         "description": "Standard error envelope returned by all 4xx/5xx responses. Migrated routes include `success: false`; 422 validation errors add `error.details.errors`.",
         "properties": {
@@ -1349,6 +1779,48 @@
         ],
         "type": "object"
       },
+      "FilterConditionV1": {
+        "description": "A filter condition: one or more groups combined with `logic`.",
+        "properties": {
+          "groups": {
+            "items": {
+              "$ref": "#/components/schemas/FilterGroupV1"
+            },
+            "minItems": 1,
+            "type": "array"
+          },
+          "logic": {
+            "enum": [
+              "AND",
+              "OR"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "logic",
+          "groups"
+        ],
+        "type": "object"
+      },
+      "FilterGroupV1": {
+        "description": "A group of filters. The filters inside one group ALWAYS combine with AND; `conditions` nests a further condition under this group, which is how OR-of-ANDs (and deeper) is expressed.",
+        "properties": {
+          "conditions": {
+            "$ref": "#/components/schemas/FilterConditionV1"
+          },
+          "filters": {
+            "items": {
+              "$ref": "#/components/schemas/SegmentFilterV1"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "filters"
+        ],
+        "type": "object"
+      },
       "IdResponse": {
         "description": "Success envelope carrying the affected resource's id, e.g. after a delete.",
         "properties": {
@@ -1501,6 +1973,138 @@
         ],
         "type": "object"
       },
+      "Mailbox": {
+        "description": "A receiving mailbox on one of the project's verified domains.",
+        "properties": {
+          "address": {
+            "description": "The full mailbox address, e.g. `support@superbooks.io`.",
+            "format": "email",
+            "type": "string"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "displayName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "domainId": {
+            "description": "The verified domain this mailbox lives on.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "quotaBytes": {
+            "description": "Always null. Mailbox quotas are not implemented — the value was never applied to the mail account — so this field reports the absence rather than a number nothing enforces.",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "status": {
+            "description": "`PROVISIONING` while the mail account is being created, `ACTIVE` once it can receive, `SUSPENDED` when receiving is paused, `FAILED` when provisioning did not complete. A `FAILED` mailbox can be re-created with the same address — the retry reclaims the row.",
+            "enum": [
+              "PROVISIONING",
+              "ACTIVE",
+              "SUSPENDED",
+              "FAILED"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "address",
+          "displayName",
+          "status",
+          "quotaBytes",
+          "domainId",
+          "createdAt"
+        ],
+        "type": "object"
+      },
+      "MailboxDetail": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Mailbox"
+          },
+          {
+            "properties": {
+              "settings": {
+                "description": "Host, port and username for connecting a mail client. The PASSWORD is not here and is never returned by this endpoint — create an app password for that.",
+                "properties": {
+                  "imap": {
+                    "properties": {
+                      "host": {
+                        "type": "string"
+                      },
+                      "port": {
+                        "type": "integer"
+                      },
+                      "security": {
+                        "description": "Transport security, e.g. `SSL/TLS`.",
+                        "type": "string"
+                      },
+                      "username": {
+                        "description": "The mailbox address — it is also the login.",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "host",
+                      "port",
+                      "security",
+                      "username"
+                    ],
+                    "type": "object"
+                  },
+                  "smtp": {
+                    "properties": {
+                      "host": {
+                        "type": "string"
+                      },
+                      "port": {
+                        "type": "integer"
+                      },
+                      "security": {
+                        "description": "Transport security, e.g. `SSL/TLS`.",
+                        "type": "string"
+                      },
+                      "username": {
+                        "description": "The mailbox address — it is also the login.",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "host",
+                      "port",
+                      "security",
+                      "username"
+                    ],
+                    "type": "object"
+                  }
+                },
+                "required": [
+                  "imap",
+                  "smtp"
+                ],
+                "type": "object"
+              }
+            },
+            "required": [
+              "settings"
+            ],
+            "type": "object"
+          }
+        ],
+        "description": "A mailbox plus its IMAP/SMTP connection settings."
+      },
       "Problem": {
         "description": "RFC 9457 problem document, served as `application/problem+json`. Returned by every 4xx/5xx response on the `/api/v1` surface.",
         "properties": {
@@ -1566,6 +2170,180 @@
         ],
         "type": "object"
       },
+      "ProjectRecord": {
+        "properties": {
+          "billingLimitCampaigns": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "billingLimitInbound": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "billingLimitTransactional": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "billingLimitWorkflows": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "createdAt": {
+            "description": "ISO 8601 datetime string",
+            "format": "date-time",
+            "type": "string"
+          },
+          "disabled": {
+            "type": "boolean"
+          },
+          "disabledReason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "language": {
+            "description": "ISO 639-1 code for customer-facing content.",
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "organizationId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sandboxHandle": {
+            "description": "Local-part of the sandbox quick-start sender; null until first derived.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sesRegion": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "stripeCustomerId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "stripeSubscriptionId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tracking": {
+            "enum": [
+              "ENABLED",
+              "DISABLED",
+              "MARKETING_ONLY"
+            ],
+            "type": "string"
+          },
+          "updatedAt": {
+            "description": "ISO 8601 datetime string",
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "disabled",
+          "disabledReason",
+          "sandboxHandle",
+          "stripeCustomerId",
+          "stripeSubscriptionId",
+          "billingLimitWorkflows",
+          "billingLimitCampaigns",
+          "billingLimitTransactional",
+          "billingLimitInbound",
+          "tracking",
+          "sesRegion",
+          "language",
+          "organizationId",
+          "createdAt",
+          "updatedAt"
+        ],
+        "type": "object"
+      },
+      "ProjectV1": {
+        "description": "The project the presented credential is scoped to.",
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "disabled": {
+            "description": "A disabled project sends nothing; every send is refused.",
+            "type": "boolean"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "language": {
+            "description": "ISO 639-1 code for customer-facing content.",
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "sandbox_address": {
+            "description": "This project's quick-start sender, usable with no domain setup — but only to the project owner's own verified address, and under a daily cap. Null when none can be derived.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "ses_region": {
+            "description": "Locked once the first domain is added.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tracking": {
+            "enum": [
+              "ENABLED",
+              "DISABLED",
+              "MARKETING_ONLY"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "disabled",
+          "sandbox_address",
+          "ses_region",
+          "tracking",
+          "language",
+          "created_at"
+        ],
+        "type": "object"
+      },
       "SegmentContactV1": {
         "description": "A contact belonging to a segment.",
         "properties": {
@@ -1625,13 +2403,64 @@
         ],
         "type": "object"
       },
+      "SegmentFilterV1": {
+        "description": "One comparison. `field` addresses a contact column (`email`, `createdAt`, …) or a `customFields.<key>` path. `value` is whatever the operator compares against — its JSON type follows the field, and it is omitted entirely for the presence operators (`exists`, `notExists`). `unit` applies only to the relative-time operators (`within`, `olderThan`, and the `triggered*` family).",
+        "properties": {
+          "field": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "operator": {
+            "enum": [
+              "equals",
+              "notEquals",
+              "contains",
+              "notContains",
+              "greaterThan",
+              "lessThan",
+              "greaterThanOrEqual",
+              "lessThanOrEqual",
+              "exists",
+              "notExists",
+              "within",
+              "olderThan",
+              "triggered",
+              "triggeredWithin",
+              "triggeredOlderThan",
+              "notTriggered",
+              "notTriggeredWithin",
+              "isMemberOf"
+            ],
+            "type": "string"
+          },
+          "unit": {
+            "enum": [
+              "days",
+              "hours",
+              "minutes"
+            ],
+            "type": "string"
+          },
+          "value": {}
+        },
+        "required": [
+          "field",
+          "operator"
+        ],
+        "type": "object"
+      },
       "SegmentV1": {
         "description": "A segment as exposed on the v1 API.",
         "properties": {
           "condition": {
-            "additionalProperties": {},
-            "description": "Filter condition: `{ logic: \"AND\" | \"OR\", groups: [{ filters: [{ field, operator, value?, unit? }], conditions?: <nested condition> }] }`. `field` addresses a contact column or a `customFields.<key>` path; `operator` is one of the segment operators (equals, notEquals, contains, greaterThan, lessThan, within, exists, …). Groups combine with `logic`; filters inside one group always combine with AND.",
-            "type": "object"
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FilterConditionV1"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "created_at": {
             "format": "date-time",
@@ -1685,9 +2514,7 @@
         "description": "Body for POST /api/v1/segments. `condition` is required when `type` is `DYNAMIC`.",
         "properties": {
           "condition": {
-            "additionalProperties": {},
-            "description": "Filter condition: `{ logic: \"AND\" | \"OR\", groups: [{ filters: [{ field, operator, value?, unit? }], conditions?: <nested condition> }] }`. `field` addresses a contact column or a `customFields.<key>` path; `operator` is one of the segment operators (equals, notEquals, contains, greaterThan, lessThan, within, exists, …). Groups combine with `logic`; filters inside one group always combine with AND.",
-            "type": "object"
+            "$ref": "#/components/schemas/FilterConditionV1"
           },
           "description": {
             "maxLength": 500,
@@ -1768,9 +2595,7 @@
         "description": "Body for PATCH /api/v1/segments/{id}. `type` is deliberately absent — it is fixed at creation. `condition` is ignored on a STATIC segment.",
         "properties": {
           "condition": {
-            "additionalProperties": {},
-            "description": "Filter condition: `{ logic: \"AND\" | \"OR\", groups: [{ filters: [{ field, operator, value?, unit? }], conditions?: <nested condition> }] }`. `field` addresses a contact column or a `customFields.<key>` path; `operator` is one of the segment operators (equals, notEquals, contains, greaterThan, lessThan, within, exists, …). Groups combine with `logic`; filters inside one group always combine with AND.",
-            "type": "object"
+            "$ref": "#/components/schemas/FilterConditionV1"
           },
           "description": {
             "maxLength": 500,
@@ -2041,6 +2866,196 @@
         "required": [
           "success",
           "data"
+        ],
+        "type": "object"
+      },
+      "SendEmailV1": {
+        "description": "Body for POST /api/v1/emails. Either `template` or `subject`+`body` is required, and `to` names exactly one recipient.",
+        "properties": {
+          "attachments": {
+            "items": {
+              "properties": {
+                "content": {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "contentId": {
+                  "maxLength": 255,
+                  "minLength": 1,
+                  "pattern": "^[^<>\\r\\n]+$",
+                  "type": "string"
+                },
+                "contentType": {
+                  "maxLength": 255,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "disposition": {
+                  "default": "attachment",
+                  "enum": [
+                    "attachment",
+                    "inline"
+                  ],
+                  "type": "string"
+                },
+                "filename": {
+                  "maxLength": 255,
+                  "minLength": 1,
+                  "pattern": "^[^\\r\\n\"]+$",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "filename",
+                "content",
+                "contentType"
+              ],
+              "type": "object"
+            },
+            "maxItems": 10,
+            "type": "array"
+          },
+          "bcc": {
+            "items": {
+              "format": "email",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "body": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "cc": {
+            "items": {
+              "format": "email",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "data": {
+            "additionalProperties": {},
+            "description": "Arbitrary JSON value (string, number, boolean, null, array, or object).",
+            "type": "object"
+          },
+          "from": {
+            "anyOf": [
+              {
+                "format": "email",
+                "type": "string"
+              },
+              {
+                "properties": {
+                  "email": {
+                    "format": "email",
+                    "type": "string"
+                  },
+                  "name": {
+                    "pattern": "^[^\\r\\n]*$",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "email"
+                ],
+                "type": "object"
+              }
+            ]
+          },
+          "headers": {
+            "additionalProperties": {
+              "maxLength": 998,
+              "pattern": "^[^\\r\\n]*$",
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "name": {
+            "type": "string"
+          },
+          "reply": {
+            "format": "email",
+            "type": "string"
+          },
+          "subject": {
+            "maxLength": 998,
+            "minLength": 1,
+            "pattern": "^[^\\r\\n]*$",
+            "type": "string"
+          },
+          "subscribed": {
+            "type": "boolean"
+          },
+          "tags": {
+            "items": {
+              "maxLength": 64,
+              "minLength": 1,
+              "pattern": "^[a-zA-Z0-9_-]+$",
+              "type": "string"
+            },
+            "maxItems": 10,
+            "type": "array"
+          },
+          "template": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "to": {
+            "anyOf": [
+              {
+                "format": "email",
+                "type": "string"
+              },
+              {
+                "properties": {
+                  "email": {
+                    "format": "email",
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "email"
+                ],
+                "type": "object"
+              }
+            ],
+            "description": "The single recipient. Use `cc`/`bcc` to copy others on the same message."
+          }
+        },
+        "required": [
+          "to"
+        ],
+        "type": "object"
+      },
+      "SendTestEmailV1": {
+        "description": "Body for POST /api/v1/emails/test. `subject` and `body` are required; `to` defaults to the project owner's verified email, and `from` is refused.",
+        "properties": {
+          "body": {
+            "description": "HTML body. Merge tags are rendered as on any other send.",
+            "minLength": 1,
+            "type": "string"
+          },
+          "from": {
+            "description": "NOT ACCEPTED. The sender is always this project's sandbox address, resolved server-side; naming one here is refused rather than ignored, so a request that expects a different sender never gets a success it would misread. Read `sandbox_address` from `GET /api/v1/projects` to learn the address, or `from` off this response.",
+            "type": "string"
+          },
+          "subject": {
+            "maxLength": 998,
+            "minLength": 1,
+            "type": "string"
+          },
+          "to": {
+            "description": "Where to send it. Optional — it defaults to the project owner's own verified account email, which is the only address a sandbox send may reach. Any other value is refused.",
+            "format": "email",
+            "type": "string"
+          }
+        },
+        "required": [
+          "subject",
+          "body"
         ],
         "type": "object"
       },
@@ -3342,6 +4357,48 @@
         "scheme": "bearer",
         "type": "http"
       },
+      "OAuth2": {
+        "description": "OAuth 2.1 with PKCE, for AI agents and other delegated clients (this is what the MCP endpoint at `/api/mcp` uses). Tokens are minted through the consent screen and carry ONLY the scopes the user ticked there, so an operation lists the single scope it requires and a token without it answers `403` with code `SCOPE_MISSING` — before any input is parsed. Unlike an API key, a delegated token reaches an operation only where the route itself declares a scope; every other route refuses it outright.",
+        "flows": {
+          "authorizationCode": {
+            "authorizationUrl": "https://app.sendly.now/api/auth/oauth2/authorize",
+            "scopes": {
+              "analytics:read": "View your sending analytics and engagement metrics",
+              "api-keys:read": "See which API keys exist, including what each one is allowed to do",
+              "api-keys:write": "Create, rotate, and revoke API keys — these keep working even after you disconnect this app",
+              "campaigns:read": "View your campaigns and their performance",
+              "campaigns:send": "Send or schedule your campaigns to their audience",
+              "campaigns:write": "Create, edit, and organize your campaigns",
+              "contacts:read": "View your contacts and their custom fields",
+              "contacts:write": "Create, update, and delete your contacts",
+              "domains:read": "View your sending domains and their verification status",
+              "domains:write": "Add and remove sending domains, and trigger verification",
+              "emails:read": "View the emails you have sent and their delivery status",
+              "emails:send": "Send emails from your verified domains",
+              "emails:test": "Send test emails to your own address from the Sendly sandbox",
+              "events:read": "View the custom events your application has recorded",
+              "events:write": "Record custom events for your contacts",
+              "mailboxes:read": "View the mailboxes on your domains and their settings",
+              "mailboxes:write": "Create and delete mailboxes on your verified domains",
+              "projects:read": "View your projects and their settings",
+              "projects:write": "Create new projects on your account",
+              "segments:read": "View your segments and who belongs to them",
+              "segments:write": "Create, edit, and delete your segments",
+              "suppression:read": "View the addresses on your suppression list",
+              "suppression:write": "Add and remove addresses on your suppression list",
+              "templates:read": "View your email templates",
+              "templates:write": "Create, edit, and delete your email templates",
+              "usage:read": "View your usage totals and billing limits",
+              "webhooks:read": "View your webhook endpoints and their delivery history",
+              "webhooks:write": "Create, edit, and delete your webhook endpoints",
+              "workflows:read": "View your automation workflows and their runs",
+              "workflows:write": "Create, edit, enable, and delete your automation workflows"
+            },
+            "tokenUrl": "https://app.sendly.now/api/auth/oauth2/token"
+          }
+        },
+        "type": "oauth2"
+      },
       "SessionAuth": {
         "description": "BetterAuth session cookie. Used by the dashboard / browser clients. When present, the active project is taken from the `x-project-id` header.",
         "in": "cookie",
@@ -3355,7 +4412,7 @@
       "name": "Sendly Support",
       "url": "https://sendly.now"
     },
-    "description": "Sendly's public REST API. Authenticate either with a project API key as `Authorization: Bearer <api-key>` (`sk_*` for full access, `pk_*` for sending-only) or with a BetterAuth session cookie. Legacy `/api/*` endpoints return JSON envelopes of the form `{ success, data }` (success) or `{ error: { message, code } }` (failure). `/api/v1/*` endpoints return bare resource bodies on success and RFC 9457 `application/problem+json` documents on failure.",
+    "description": "Sendly's public REST API. Authenticate with a project API key as `Authorization: Bearer <api-key>` (`sk_*` for full access, `pk_*` for sending-only), with a BetterAuth session cookie, or — for AI agents and other delegated clients — with an OAuth 2.1 access token carrying the scopes its user approved. An operation lists the scope it requires under `OAuth2`; an operation that lists none refuses delegated tokens outright, whatever scopes they hold. Legacy `/api/*` endpoints return JSON envelopes of the form `{ success, data }` (success) or `{ error: { message, code } }` (failure). `/api/v1/*` endpoints return bare resource bodies on success and RFC 9457 `application/problem+json` documents on failure.",
     "license": {
       "name": "AGPL-3.0",
       "url": "https://www.gnu.org/licenses/agpl-3.0.txt"
@@ -3367,7 +4424,7 @@
   "paths": {
     "/api/contacts": {
       "get": {
-        "description": "Cursor-paginated list of contacts. Supports filter by `search` and `subscribed`.",
+        "description": "Cursor-paginated list of contacts. Supports filter by `search` and `subscribed`.\n\nRequires the `contacts:read` scope — View your contacts and their custom fields.",
         "operationId": "listContacts",
         "parameters": [
           {
@@ -3488,6 +4545,11 @@
           },
           {
             "SessionAuth": []
+          },
+          {
+            "OAuth2": [
+              "contacts:read"
+            ]
           }
         ],
         "summary": "List contacts",
@@ -3496,7 +4558,7 @@
         ]
       },
       "post": {
-        "description": "Create a new contact. Returns 409 on `(projectId, email)` conflict — use `/api/contacts/upsert` for create-or-update semantics.",
+        "description": "Create a new contact. Returns 409 on `(projectId, email)` conflict — use `/api/contacts/upsert` for create-or-update semantics.\n\nRequires the `contacts:write` scope — Create, update, and delete your contacts.",
         "operationId": "createContact",
         "requestBody": {
           "content": {
@@ -3611,6 +4673,11 @@
           },
           {
             "SessionAuth": []
+          },
+          {
+            "OAuth2": [
+              "contacts:write"
+            ]
           }
         ],
         "summary": "Create a contact",
@@ -3621,7 +4688,7 @@
     },
     "/api/contacts/bulk": {
       "delete": {
-        "description": "Delete up to 1000 contacts in one call. Provide either `ids` or `emails`.",
+        "description": "Delete up to 1000 contacts in one call. Provide either `ids` or `emails`.\n\nRequires the `contacts:write` scope — Create, update, and delete your contacts.",
         "operationId": "bulkDeleteContacts",
         "requestBody": {
           "content": {
@@ -3734,6 +4801,11 @@
           },
           {
             "SessionAuth": []
+          },
+          {
+            "OAuth2": [
+              "contacts:write"
+            ]
           }
         ],
         "summary": "Bulk-delete contacts",
@@ -3742,7 +4814,7 @@
         ]
       },
       "post": {
-        "description": "Create up to 1000 contacts in one call. Per-row conflicts are reported as `skipped`.",
+        "description": "Create up to 1000 contacts in one call. Per-row conflicts are reported as `skipped`.\n\nRequires the `contacts:write` scope — Create, update, and delete your contacts.",
         "operationId": "bulkCreateContacts",
         "requestBody": {
           "content": {
@@ -3878,6 +4950,11 @@
           },
           {
             "SessionAuth": []
+          },
+          {
+            "OAuth2": [
+              "contacts:write"
+            ]
           }
         ],
         "summary": "Bulk-create contacts",
@@ -3888,7 +4965,7 @@
     },
     "/api/contacts/upsert": {
       "post": {
-        "description": "Idempotent contact upsert keyed by email. Always answers 200 — the create-vs-update distinction is not signalled via status code.",
+        "description": "Idempotent contact upsert keyed by email. Always answers 200 — the create-vs-update distinction is not signalled via status code.\n\nRequires the `contacts:write` scope — Create, update, and delete your contacts.",
         "operationId": "upsertContact",
         "requestBody": {
           "content": {
@@ -3993,6 +5070,11 @@
           },
           {
             "SessionAuth": []
+          },
+          {
+            "OAuth2": [
+              "contacts:write"
+            ]
           }
         ],
         "summary": "Create or update a contact by email",
@@ -4003,7 +5085,7 @@
     },
     "/api/contacts/{id}": {
       "delete": {
-        "description": "Hard-delete a contact. Answers 200 with `{ success, data: { id } }` (pre-seam this was 204 No Content).",
+        "description": "Hard-delete a contact. Answers 200 with `{ success, data: { id } }` (pre-seam this was 204 No Content).\n\nRequires the `contacts:write` scope — Create, update, and delete your contacts.",
         "operationId": "deleteContact",
         "parameters": [
           {
@@ -4094,6 +5176,11 @@
           },
           {
             "SessionAuth": []
+          },
+          {
+            "OAuth2": [
+              "contacts:write"
+            ]
           }
         ],
         "summary": "Delete a contact",
@@ -4102,6 +5189,7 @@
         ]
       },
       "get": {
+        "description": "Requires the `contacts:read` scope — View your contacts and their custom fields.",
         "operationId": "getContact",
         "parameters": [
           {
@@ -4207,6 +5295,11 @@
           },
           {
             "SessionAuth": []
+          },
+          {
+            "OAuth2": [
+              "contacts:read"
+            ]
           }
         ],
         "summary": "Get a contact",
@@ -4215,7 +5308,7 @@
         ]
       },
       "patch": {
-        "description": "Update `data` and/or `subscribed`. `email` is immutable here — use `/api/contacts/upsert` to change addresses.",
+        "description": "Update `data` and/or `subscribed`. `email` is immutable here — use `/api/contacts/upsert` to change addresses.\n\nRequires the `contacts:write` scope — Create, update, and delete your contacts.",
         "operationId": "updateContact",
         "parameters": [
           {
@@ -4341,6 +5434,11 @@
           },
           {
             "SessionAuth": []
+          },
+          {
+            "OAuth2": [
+              "contacts:write"
+            ]
           }
         ],
         "summary": "Update a contact",
@@ -4351,7 +5449,7 @@
     },
     "/api/domains": {
       "get": {
-        "description": "List all domains for the authenticated project.",
+        "description": "List all domains for the authenticated project.\n\nRequires the `domains:read` scope — View your sending domains and their verification status.",
         "operationId": "listDomains",
         "responses": {
           "200": {
@@ -4421,6 +5519,11 @@
           },
           {
             "SessionAuth": []
+          },
+          {
+            "OAuth2": [
+              "domains:read"
+            ]
           }
         ],
         "summary": "List sending domains",
@@ -4429,7 +5532,7 @@
         ]
       },
       "post": {
-        "description": "Register a new domain with SES and persist its DKIM tokens.",
+        "description": "Register a new domain with SES and persist its DKIM tokens.\n\nRequires the `domains:write` scope — Add and remove sending domains, and trigger verification.",
         "operationId": "addDomain",
         "requestBody": {
           "content": {
@@ -4516,6 +5619,16 @@
               }
             },
             "description": "Internal server error"
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "AWS SES rejected the identity setup (unusable credentials, a missing IAM permission, or a refusal on Amazon's side). No domain row is written, and the request is not at fault — retrying it unchanged will not help."
           }
         },
         "security": [
@@ -4524,6 +5637,11 @@
           },
           {
             "SessionAuth": []
+          },
+          {
+            "OAuth2": [
+              "domains:write"
+            ]
           }
         ],
         "summary": "Add a sending domain",
@@ -4534,7 +5652,7 @@
     },
     "/api/domains/{id}": {
       "delete": {
-        "description": "Removes the domain from the project. The underlying SES identity is also dropped if no other project still uses it.",
+        "description": "Removes the domain from the project. The underlying SES identity is also dropped if no other project still uses it.\n\nRequires the `domains:write` scope — Add and remove sending domains, and trigger verification.",
         "operationId": "deleteDomain",
         "parameters": [
           {
@@ -4625,6 +5743,11 @@
           },
           {
             "SessionAuth": []
+          },
+          {
+            "OAuth2": [
+              "domains:write"
+            ]
           }
         ],
         "summary": "Remove a sending domain",
@@ -4633,6 +5756,7 @@
         ]
       },
       "get": {
+        "description": "Requires the `domains:read` scope — View your sending domains and their verification status.",
         "operationId": "getDomain",
         "parameters": [
           {
@@ -4738,6 +5862,11 @@
           },
           {
             "SessionAuth": []
+          },
+          {
+            "OAuth2": [
+              "domains:read"
+            ]
           }
         ],
         "summary": "Get a sending domain",
@@ -4746,9 +5875,149 @@
         ]
       }
     },
+    "/api/domains/{id}/dodomain-session": {
+      "post": {
+        "description": "Mint a short-lived guided-setup session for this domain and return the URL that opens it. The URL is the whole point: DNS records have to be published at the domain's registrar, which is a place only a person with those credentials can reach — so this call cannot finish the job, it hands it over.\n\nThe session is bound to this one domain, expires on its own, and returns the browser to the Sendly domains settings page when it is done. Verification authority stays with SES either way: guided setup publishes the records, it does not decide whether they are correct.\n\n`503 DODOMAIN_NOT_CONFIGURED` when the deployment has no guided-setup provider. `429 DODOMAIN_SESSION_COOLDOWN` for a second call within 60s on the same domain — each session is metered, so a double submit is refused rather than charged twice.\n\nRequires the `domains:write` scope — Add and remove sending domains, and trigger verification.",
+        "operationId": "startDomainSetup",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "data": {
+                      "properties": {
+                        "connectUrl": {
+                          "description": "Open this in a browser to publish the records. Short-lived and domain-specific.",
+                          "format": "uri",
+                          "type": "string"
+                        },
+                        "expiresAt": {
+                          "description": "When `connectUrl` stops working.",
+                          "type": "string"
+                        },
+                        "token": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "token",
+                        "connectUrl",
+                        "expiresAt"
+                      ],
+                      "type": "object"
+                    },
+                    "success": {
+                      "enum": [
+                        true
+                      ],
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Guided setup session"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Validation error"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unauthorized — missing or invalid auth"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Forbidden — insufficient permissions or project disabled"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Rate limit or billing limit exceeded"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          },
+          {
+            "SessionAuth": []
+          },
+          {
+            "OAuth2": [
+              "domains:write"
+            ]
+          }
+        ],
+        "summary": "Start guided DNS setup",
+        "tags": [
+          "Domains"
+        ]
+      }
+    },
     "/api/domains/{id}/verify": {
       "get": {
-        "description": "Read the current SES verification status without forcing a refresh.",
+        "description": "Read the current SES verification status without forcing a refresh.\n\nRequires the `domains:write` scope — Add and remove sending domains, and trigger verification.",
         "operationId": "getDomainVerification",
         "parameters": [
           {
@@ -4854,6 +6123,11 @@
           },
           {
             "SessionAuth": []
+          },
+          {
+            "OAuth2": [
+              "domains:write"
+            ]
           }
         ],
         "summary": "Read SES verification status",
@@ -4862,7 +6136,7 @@
         ]
       },
       "post": {
-        "description": "Force a refresh of the domain's SES verification status.",
+        "description": "Force a refresh of the domain's SES verification status.\n\nRequires the `domains:write` scope — Add and remove sending domains, and trigger verification.",
         "operationId": "verifyDomain",
         "parameters": [
           {
@@ -4968,6 +6242,11 @@
           },
           {
             "SessionAuth": []
+          },
+          {
+            "OAuth2": [
+              "domains:write"
+            ]
           }
         ],
         "summary": "Trigger SES verification",
@@ -4978,7 +6257,7 @@
     },
     "/api/emails": {
       "get": {
-        "description": "List emails for the authenticated project. Cursor-paginated for stable scroll over large result sets.",
+        "description": "List emails for the authenticated project. Cursor-paginated for stable scroll over large result sets.\n\nRequires the `emails:read` scope — View the emails you have sent and their delivery status.",
         "operationId": "listEmails",
         "parameters": [
           {
@@ -5103,6 +6382,11 @@
           },
           {
             "SessionAuth": []
+          },
+          {
+            "OAuth2": [
+              "emails:read"
+            ]
           }
         ],
         "summary": "List emails",
@@ -5111,7 +6395,7 @@
         ]
       },
       "post": {
-        "description": "Send a single transactional email. Accepts a `template` ID or an inline `subject` + `body`. An optional `Idempotency-Key` request header (1–255 chars, 24h TTL) ensures replay safety: the first request wins and a retry carrying the same key AND the same body replays its response. Reusing a key with a DIFFERENT body answers `422 IDEMPOTENCY_KEY_REUSED` — a key names one request, so it is never silently served another request's result.",
+        "description": "Send a single transactional email. Accepts a `template` ID or an inline `subject` + `body`. An optional `Idempotency-Key` request header (1–255 chars, 24h TTL) ensures replay safety: the first request wins and a retry carrying the same key AND the same body replays its response. Reusing a key with a DIFFERENT body answers `422 IDEMPOTENCY_KEY_REUSED` — a key names one request, so it is never silently served another request's result.\n\nRequires the `emails:send` scope — Send emails from your verified domains.",
         "operationId": "sendEmail",
         "parameters": [
           {
@@ -5235,6 +6519,11 @@
           },
           {
             "SessionAuth": []
+          },
+          {
+            "OAuth2": [
+              "emails:send"
+            ]
           }
         ],
         "summary": "Send a single transactional email",
@@ -5245,7 +6534,7 @@
     },
     "/api/emails/batch": {
       "post": {
-        "description": "Send up to 100 emails in one request. Returns 207 Multi-Status if any entry failed, or 200 if all succeeded. Per-entry results are reported in the `data` array.\n\nThe whole batch is ONE idempotent unit: an `Idempotency-Key` replayed with the same entry list replays the same per-index results, and replaying it with an edited list answers `422 IDEMPOTENCY_KEY_REUSED` rather than returning results for indexes the new body no longer has.",
+        "description": "Send up to 100 emails in one request. Returns 207 Multi-Status if any entry failed, or 200 if all succeeded. Per-entry results are reported in the `data` array.\n\nThe whole batch is ONE idempotent unit: an `Idempotency-Key` replayed with the same entry list replays the same per-index results, and replaying it with an edited list answers `422 IDEMPOTENCY_KEY_REUSED` rather than returning results for indexes the new body no longer has.\n\nRequires the `emails:send` scope — Send emails from your verified domains.",
         "operationId": "sendEmailBatch",
         "parameters": [
           {
@@ -5377,6 +6666,11 @@
           },
           {
             "SessionAuth": []
+          },
+          {
+            "OAuth2": [
+              "emails:send"
+            ]
           }
         ],
         "summary": "Send a batch of emails",
@@ -5387,7 +6681,7 @@
     },
     "/api/emails/{id}": {
       "get": {
-        "description": "Fetch one email along with its delivery events.",
+        "description": "Fetch one email along with its delivery events.\n\nRequires the `emails:read` scope — View the emails you have sent and their delivery status.",
         "operationId": "getEmail",
         "parameters": [
           {
@@ -5478,6 +6772,11 @@
           },
           {
             "SessionAuth": []
+          },
+          {
+            "OAuth2": [
+              "emails:read"
+            ]
           }
         ],
         "summary": "Get a single email",
@@ -5853,9 +7152,1409 @@
         ]
       }
     },
+    "/api/mailboxes": {
+      "get": {
+        "description": "Every mailbox on the authenticated project's domains, newest first. Not paginated — a project may hold at most 10 mailboxes.\n\nThis lists the mailboxes themselves, never their contents: the messages a mailbox has received are not part of the public API and are not covered by this scope.\n\nRequires the `mailboxes:read` scope — View the mailboxes on your domains and their settings.",
+        "operationId": "listMailboxes",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "data": {
+                      "items": {
+                        "$ref": "#/components/schemas/Mailbox"
+                      },
+                      "type": "array"
+                    },
+                    "success": {
+                      "enum": [
+                        true
+                      ],
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Mailbox list"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Validation error"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unauthorized — missing or invalid auth"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Forbidden — insufficient permissions or project disabled"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Rate limit or billing limit exceeded"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          },
+          {
+            "SessionAuth": []
+          },
+          {
+            "OAuth2": [
+              "mailboxes:read"
+            ]
+          }
+        ],
+        "summary": "List mailboxes",
+        "tags": [
+          "Mailboxes"
+        ]
+      },
+      "post": {
+        "description": "Provision a real receiving mailbox — `support@yourdomain.com` — on a domain you have already verified.\n\nThree consequences worth knowing before you call it:\n\n- **It changes how your domain's mail is routed.** The first mailbox on a domain turns receiving on for that domain, so mail addressed there starts arriving at Sendly instead of wherever it went before.\n- **The domain must be verified.** An unverified domain answers 409; creating a mailbox is not a way to skip DNS.\n- **Ten per project.** The eleventh answers 409. Deleted mailboxes free their slot; failed ones never consumed one.\n\nRetrying a failed provision with the same address reclaims the failed row rather than answering 409 — but only for the same project and the same domain.\n\n`quotaBytes` is accepted by the schema and REFUSED with a 400. Quotas are not implemented, and the field is still parsed so that asking for one is an error rather than a silently dropped key.\n\nRequires the `mailboxes:write` scope — Create and delete mailboxes on your verified domains.",
+        "operationId": "createMailbox",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateMailboxBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Mailbox"
+                    },
+                    "success": {
+                      "enum": [
+                        true
+                      ],
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Mailbox provisioned"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Validation error"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unauthorized — missing or invalid auth"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Forbidden — insufficient permissions or project disabled"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "The address already exists, the domain is not verified, or the project is at its 10-mailbox limit."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Rate limit or billing limit exceeded"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Internal server error"
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Provisioning failed in the mail server. The mailbox row is left `FAILED` and can be retried."
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          },
+          {
+            "SessionAuth": []
+          },
+          {
+            "OAuth2": [
+              "mailboxes:write"
+            ]
+          }
+        ],
+        "summary": "Create a mailbox",
+        "tags": [
+          "Mailboxes"
+        ]
+      }
+    },
+    "/api/mailboxes/{id}": {
+      "delete": {
+        "description": "Delete a mailbox and the mail account behind it. **Every message it holds is erased**, and Sendly keeps no other copy — this is not recoverable from the dashboard or by support. Mail sent to the address afterwards is rejected.\n\nRequires an admin of the project.\n\nRequires the `mailboxes:write` scope — Create and delete mailboxes on your verified domains.",
+        "operationId": "deleteMailbox",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "data": {
+                      "properties": {
+                        "deleted": {
+                          "enum": [
+                            true
+                          ],
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "deleted"
+                      ],
+                      "type": "object"
+                    },
+                    "success": {
+                      "enum": [
+                        true
+                      ],
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Mailbox deleted"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Validation error"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unauthorized — missing or invalid auth"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Forbidden — insufficient permissions or project disabled"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Rate limit or billing limit exceeded"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          },
+          {
+            "SessionAuth": []
+          },
+          {
+            "OAuth2": [
+              "mailboxes:write"
+            ]
+          }
+        ],
+        "summary": "Delete a mailbox",
+        "tags": [
+          "Mailboxes"
+        ]
+      },
+      "get": {
+        "description": "One mailbox, with the IMAP and SMTP host/port/username a mail client needs. The password is not included: mailbox credentials are app passwords, created separately and shown once.\n\nRequires the `mailboxes:read` scope — View the mailboxes on your domains and their settings.",
+        "operationId": "getMailbox",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/MailboxDetail"
+                    },
+                    "success": {
+                      "enum": [
+                        true
+                      ],
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Mailbox with connection settings"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Validation error"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unauthorized — missing or invalid auth"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Forbidden — insufficient permissions or project disabled"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Rate limit or billing limit exceeded"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          },
+          {
+            "SessionAuth": []
+          },
+          {
+            "OAuth2": [
+              "mailboxes:read"
+            ]
+          }
+        ],
+        "summary": "Get a mailbox",
+        "tags": [
+          "Mailboxes"
+        ]
+      }
+    },
+    "/api/mailboxes/{id}/app-passwords": {
+      "get": {
+        "description": "Every app password on the mailbox — name, protocols, last four characters and last use. The secrets themselves are stored hashed and are not retrievable here or anywhere else; a password you have lost is replaced, not recovered.\n\nRequires the `mailboxes:read` scope — View the mailboxes on your domains and their settings.",
+        "operationId": "listAppPasswords",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "data": {
+                      "items": {
+                        "$ref": "#/components/schemas/AppPassword"
+                      },
+                      "type": "array"
+                    },
+                    "success": {
+                      "enum": [
+                        true
+                      ],
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "App password list"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Validation error"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unauthorized — missing or invalid auth"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Forbidden — insufficient permissions or project disabled"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Rate limit or billing limit exceeded"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          },
+          {
+            "SessionAuth": []
+          },
+          {
+            "OAuth2": [
+              "mailboxes:read"
+            ]
+          }
+        ],
+        "summary": "List a mailbox's app passwords",
+        "tags": [
+          "Mailboxes"
+        ]
+      },
+      "post": {
+        "description": "Mint an IMAP/SMTP credential for the mailbox, so a mail client can connect to it.\n\n**The secret is not in the response.** A delegated caller receives `revealUrl` — a single-use link that shows the password once in a browser, to a signed-in project admin. The connection that created the password cannot open its own link, and the link is spent by the first attempt to open it, successful or not.\n\nThat is deliberate and not a limitation to work around: an app password is a live mail credential that a client authenticates with directly, it outlives the grant that created it, and it is revoked from a different screen. Returning it inline would place a working mail credential in an agent's context, its transcript, and every log that transcript reaches.\n\nRequires an admin of the project. An API key is refused with 401 — this endpoint needs a user, so use an OAuth connection.\n\nRequires the `mailboxes:write` scope — Create and delete mailboxes on your verified domains.",
+        "operationId": "createAppPassword",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateAppPassword"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/AppPasswordReveal"
+                    },
+                    "success": {
+                      "enum": [
+                        true
+                      ],
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "App password created; the secret is behind the one-time link"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Validation error"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unauthorized — missing or invalid auth"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Forbidden — insufficient permissions or project disabled"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Rate limit or billing limit exceeded"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          },
+          {
+            "OAuth2": [
+              "mailboxes:write"
+            ]
+          }
+        ],
+        "summary": "Create an app password",
+        "tags": [
+          "Mailboxes"
+        ]
+      }
+    },
+    "/api/mailboxes/{id}/app-passwords/{passwordId}": {
+      "delete": {
+        "description": "Revoke one app password. Any mail client still configured with it stops authenticating immediately — there is no grace period — and the mailbox and its messages are untouched.\n\nRequires an admin of the project. An API key is refused with 401.\n\nRequires the `mailboxes:write` scope — Create and delete mailboxes on your verified domains.",
+        "operationId": "revokeAppPassword",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "passwordId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "data": {
+                      "properties": {
+                        "revoked": {
+                          "enum": [
+                            true
+                          ],
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "revoked"
+                      ],
+                      "type": "object"
+                    },
+                    "success": {
+                      "enum": [
+                        true
+                      ],
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "App password revoked"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Validation error"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unauthorized — missing or invalid auth"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Forbidden — insufficient permissions or project disabled"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Rate limit or billing limit exceeded"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          },
+          {
+            "OAuth2": [
+              "mailboxes:write"
+            ]
+          }
+        ],
+        "summary": "Revoke an app password",
+        "tags": [
+          "Mailboxes"
+        ]
+      }
+    },
+    "/api/projects/{id}/api-keys": {
+      "get": {
+        "description": "Returns every key on the project, revoked ones included — filter on `revokedAt` to show only live keys. Never returns a token or its hash: `lastFour` is the only fragment of the secret that survives creation.\n\nRequires the `api-keys:read` scope — See which API keys exist, including what each one is allowed to do.",
+        "operationId": "listApiKeys",
+        "parameters": [
+          {
+            "description": "Project id.",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "description": "Project id.",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiKeyListResponse"
+                }
+              }
+            },
+            "description": "API key list"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Validation error"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unauthorized — missing or invalid auth"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Forbidden — insufficient permissions or project disabled"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Rate limit or billing limit exceeded"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          },
+          {
+            "SessionAuth": []
+          },
+          {
+            "OAuth2": [
+              "api-keys:read"
+            ]
+          }
+        ],
+        "summary": "List API keys for a project",
+        "tags": [
+          "API Keys"
+        ]
+      },
+      "post": {
+        "description": "Mint a new API key on the project. The token is NOT returned — the response carries the key's metadata plus a one-time `revealUrl` that only a signed-in dashboard session can open.\n\n**Scope attenuation:** a key created with a delegated credential (an OAuth token or another API key) may not carry a scope that credential does not itself hold. A request that asks for more is refused with `400 SCOPE_ESCALATION` rather than quietly narrowed, so the mistake is reported where it was made instead of surfacing later as an unexplained 403. Naming only `permission` counts as asking for every scope that permission implies.\n\nRequires the `api-keys:write` scope — Create, rotate, and revoke API keys — these keep working even after you disconnect this app.",
+        "operationId": "createApiKey",
+        "parameters": [
+          {
+            "description": "Project id.",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "description": "Project id.",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateApiKeyBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "data": {
+                      "allOf": [
+                        {
+                          "$ref": "#/components/schemas/ApiKey"
+                        },
+                        {
+                          "properties": {
+                            "revealExpiresAt": {
+                              "description": "When the reveal link stops working. Create or rotate again to get a new one.",
+                              "format": "date-time",
+                              "type": "string"
+                            },
+                            "revealUrl": {
+                              "description": "A one-time, session-authenticated URL where the person who owns this project can see the secret. The secret itself is never returned to an API or agent caller: opening this link requires a signed-in dashboard session, so the credential that created the key cannot redeem it. Single use — the first successful open consumes it.",
+                              "format": "uri",
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "revealUrl",
+                            "revealExpiresAt"
+                          ],
+                          "type": "object"
+                        }
+                      ],
+                      "description": "An API key's metadata. Never carries the token or its hash — `lastFour` is the only surviving fragment of the secret once the key has been created."
+                    },
+                    "success": {
+                      "enum": [
+                        true
+                      ],
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "API key created; the secret is behind the reveal link."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Validation error"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unauthorized — missing or invalid auth"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Forbidden — insufficient permissions or project disabled"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Rate limit or billing limit exceeded"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          },
+          {
+            "SessionAuth": []
+          },
+          {
+            "OAuth2": [
+              "api-keys:write"
+            ]
+          }
+        ],
+        "summary": "Create an API key",
+        "tags": [
+          "API Keys"
+        ]
+      }
+    },
+    "/api/projects/{id}/api-keys/{keyId}": {
+      "delete": {
+        "description": "Revoke an API key. Answers `{ success: true }` with no `data` key. 404 if the key does not exist under this project.\n\nRequires the `api-keys:write` scope — Create, rotate, and revoke API keys — these keep working even after you disconnect this app.",
+        "operationId": "revokeApiKey",
+        "parameters": [
+          {
+            "description": "Project id.",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "description": "Project id.",
+              "type": "string"
+            }
+          },
+          {
+            "description": "API key id.",
+            "in": "path",
+            "name": "keyId",
+            "required": true,
+            "schema": {
+              "description": "API key id.",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessEmpty"
+                }
+              }
+            },
+            "description": "API key revoked"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Validation error"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unauthorized — missing or invalid auth"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Forbidden — insufficient permissions or project disabled"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Rate limit or billing limit exceeded"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          },
+          {
+            "SessionAuth": []
+          },
+          {
+            "OAuth2": [
+              "api-keys:write"
+            ]
+          }
+        ],
+        "summary": "Revoke an API key",
+        "tags": [
+          "API Keys"
+        ]
+      }
+    },
+    "/api/projects/{id}/api-keys/{keyId}/rotate": {
+      "post": {
+        "description": "Replace the key's secret in place, keeping its id, name and scopes. The PREVIOUS secret stops authenticating immediately — there is no overlap window — so anything still using it starts failing on its next request. As with creation, the new secret is not returned: the response carries `lastFour` and a one-time `revealUrl`. A revoked key cannot be rotated (`400 KEY_REVOKED`).\n\nRequires the `api-keys:write` scope — Create, rotate, and revoke API keys — these keep working even after you disconnect this app.",
+        "operationId": "rotateApiKey",
+        "parameters": [
+          {
+            "description": "Project id.",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "description": "Project id.",
+              "type": "string"
+            }
+          },
+          {
+            "description": "API key id.",
+            "in": "path",
+            "name": "keyId",
+            "required": true,
+            "schema": {
+              "description": "API key id.",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "data": {
+                      "properties": {
+                        "lastFour": {
+                          "type": "string"
+                        },
+                        "revealExpiresAt": {
+                          "description": "When the reveal link stops working. Create or rotate again to get a new one.",
+                          "format": "date-time",
+                          "type": "string"
+                        },
+                        "revealUrl": {
+                          "description": "A one-time, session-authenticated URL where the person who owns this project can see the secret. The secret itself is never returned to an API or agent caller: opening this link requires a signed-in dashboard session, so the credential that created the key cannot redeem it. Single use — the first successful open consumes it.",
+                          "format": "uri",
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "lastFour",
+                        "revealUrl",
+                        "revealExpiresAt"
+                      ],
+                      "type": "object"
+                    },
+                    "success": {
+                      "enum": [
+                        true
+                      ],
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "API key rotated; the new secret is behind the reveal link."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Validation error"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unauthorized — missing or invalid auth"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Forbidden — insufficient permissions or project disabled"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Rate limit or billing limit exceeded"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          },
+          {
+            "SessionAuth": []
+          },
+          {
+            "OAuth2": [
+              "api-keys:write"
+            ]
+          }
+        ],
+        "summary": "Rotate an API key's secret",
+        "tags": [
+          "API Keys"
+        ]
+      }
+    },
     "/api/suppression": {
       "get": {
-        "description": "Cursor-paginated list of suppressed addresses. Filter by `reason`.",
+        "description": "Cursor-paginated list of suppressed addresses. Filter by `reason`.\n\nRequires the `suppression:read` scope — View the addresses on your suppression list.",
         "operationId": "listSuppressions",
         "parameters": [
           {
@@ -5960,6 +8659,11 @@
           },
           {
             "SessionAuth": []
+          },
+          {
+            "OAuth2": [
+              "suppression:read"
+            ]
           }
         ],
         "summary": "List suppressed emails",
@@ -5968,7 +8672,7 @@
         ]
       },
       "post": {
-        "description": "The `source` field is auto-derived: `API` for API-key callers, `DASHBOARD` for session callers.",
+        "description": "The `source` field is auto-derived: `API` for API-key callers, `DASHBOARD` for session callers.\n\nRequires the `suppression:write` scope — Add and remove addresses on your suppression list.",
         "operationId": "addSuppression",
         "requestBody": {
           "content": {
@@ -6048,6 +8752,11 @@
           },
           {
             "SessionAuth": []
+          },
+          {
+            "OAuth2": [
+              "suppression:write"
+            ]
           }
         ],
         "summary": "Manually add an email to the suppression list",
@@ -6058,7 +8767,7 @@
     },
     "/api/suppression/{email}": {
       "delete": {
-        "description": "Idempotent. Silently no-ops if the suppression doesn't exist.",
+        "description": "Idempotent. Silently no-ops if the suppression doesn't exist.\n\nRequires the `suppression:write` scope — Add and remove addresses on your suppression list.",
         "operationId": "removeSuppression",
         "parameters": [
           {
@@ -6133,6 +8842,11 @@
           },
           {
             "SessionAuth": []
+          },
+          {
+            "OAuth2": [
+              "suppression:write"
+            ]
           }
         ],
         "summary": "Remove an email from the suppression list",
@@ -6141,7 +8855,7 @@
         ]
       },
       "get": {
-        "description": "Returns `{ suppressed, reason?, source?, createdAt? }`. The path parameter must be URL-encoded.",
+        "description": "Returns `{ suppressed, reason?, source?, createdAt? }`. The path parameter must be URL-encoded.\n\nRequires the `suppression:read` scope — View the addresses on your suppression list.",
         "operationId": "checkSuppression",
         "parameters": [
           {
@@ -6223,6 +8937,11 @@
           },
           {
             "SessionAuth": []
+          },
+          {
+            "OAuth2": [
+              "suppression:read"
+            ]
           }
         ],
         "summary": "Check whether an email is suppressed",
@@ -6233,7 +8952,7 @@
     },
     "/api/templates": {
       "get": {
-        "description": "Cursor-paginated list of templates. Use `search` for full-text-ish filtering on name/description/subject.",
+        "description": "Cursor-paginated list of templates. Use `search` for full-text-ish filtering on name/description/subject.\n\nRequires the `templates:read` scope — View your email templates.",
         "operationId": "listTemplates",
         "parameters": [
           {
@@ -6356,6 +9075,11 @@
           },
           {
             "SessionAuth": []
+          },
+          {
+            "OAuth2": [
+              "templates:read"
+            ]
           }
         ],
         "summary": "List templates",
@@ -6364,7 +9088,7 @@
         ]
       },
       "post": {
-        "description": "Create a new email template. The `from` domain must already be verified for the project.",
+        "description": "Create a new email template. The `from` domain must already be verified for the project.\n\nRequires the `templates:write` scope — Create, edit, and delete your email templates.",
         "operationId": "createTemplate",
         "requestBody": {
           "content": {
@@ -6469,6 +9193,11 @@
           },
           {
             "SessionAuth": []
+          },
+          {
+            "OAuth2": [
+              "templates:write"
+            ]
           }
         ],
         "summary": "Create a template",
@@ -6479,7 +9208,7 @@
     },
     "/api/templates/{id}": {
       "delete": {
-        "description": "Answers 200 with `{ success, data: { id } }` (pre-seam this was 204 No Content). Refuses with 409 if the template is still attached to a workflow step or active campaign.",
+        "description": "Answers 200 with `{ success, data: { id } }` (pre-seam this was 204 No Content). Refuses with 409 if the template is still attached to a workflow step or active campaign.\n\nRequires the `templates:write` scope — Create, edit, and delete your email templates.",
         "operationId": "deleteTemplate",
         "parameters": [
           {
@@ -6580,6 +9309,11 @@
           },
           {
             "SessionAuth": []
+          },
+          {
+            "OAuth2": [
+              "templates:write"
+            ]
           }
         ],
         "summary": "Delete a template",
@@ -6588,6 +9322,7 @@
         ]
       },
       "get": {
+        "description": "Requires the `templates:read` scope — View your email templates.",
         "operationId": "getTemplate",
         "parameters": [
           {
@@ -6693,6 +9428,11 @@
           },
           {
             "SessionAuth": []
+          },
+          {
+            "OAuth2": [
+              "templates:read"
+            ]
           }
         ],
         "summary": "Get a template",
@@ -6701,7 +9441,7 @@
         ]
       },
       "patch": {
-        "description": "Update one or more fields. If `from` changes, the new domain must already be verified.",
+        "description": "Update one or more fields. If `from` changes, the new domain must already be verified.\n\nRequires the `templates:write` scope — Create, edit, and delete your email templates.",
         "operationId": "updateTemplate",
         "parameters": [
           {
@@ -6827,6 +9567,11 @@
           },
           {
             "SessionAuth": []
+          },
+          {
+            "OAuth2": [
+              "templates:write"
+            ]
           }
         ],
         "summary": "Update a template",
@@ -6837,7 +9582,7 @@
     },
     "/api/track": {
       "post": {
-        "description": "Record a custom event, creating or updating the contact by email as a side effect. Requires a FULL (`sk_*`) key — SENDING_ONLY (`pk_*`) keys answer 403, since recording events is not sending mail. Reserved system event names (`email.*`, `contact.subscribed`/`unsubscribed`, `segment.*.entry`/`.exit`) are rejected.",
+        "description": "Record a custom event, creating or updating the contact by email as a side effect. Requires a FULL (`sk_*`) key — SENDING_ONLY (`pk_*`) keys answer 403, since recording events is not sending mail. Reserved system event names (`email.*`, `contact.subscribed`/`unsubscribed`, `segment.*.entry`/`.exit`) are rejected.\n\nRequires the `events:write` scope — Record custom events for your contacts.",
         "operationId": "trackEvent",
         "requestBody": {
           "content": {
@@ -6914,11 +9659,140 @@
         "security": [
           {
             "ApiKeyAuth": []
+          },
+          {
+            "OAuth2": [
+              "events:write"
+            ]
           }
         ],
         "summary": "Track a custom event for a contact",
         "tags": [
           "Events"
+        ]
+      }
+    },
+    "/api/users/me/projects": {
+      "post": {
+        "description": "Create a new project owned by the authenticated user. Answers the raw project row directly — no `{ success, data }` envelope — with status 201.\n\nPreconditions the route enforces before writing: the caller's email must be verified, the caller must be under their cap on active (non-disabled) owned projects, and the call is rate-limited per user.\n\nRequires the `projects:write` scope — Create new projects on your account.",
+        "operationId": "createProject",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "name": {
+                    "maxLength": 100,
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "sesRegion": {
+                    "description": "AWS SES region for the project. Once a domain is added the region is locked and cannot be changed.",
+                    "enum": [
+                      "us-east-1",
+                      "us-west-2",
+                      "eu-west-1"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "name"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectRecord"
+                }
+              }
+            },
+            "description": "Project created"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Validation error"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unauthorized — missing or invalid auth"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Forbidden — insufficient permissions or project disabled"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Validation failed — request body or query parameters did not match the schema"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Rate limit or billing limit exceeded"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          },
+          {
+            "SessionAuth": []
+          },
+          {
+            "OAuth2": [
+              "projects:write"
+            ]
+          }
+        ],
+        "summary": "Create a project",
+        "tags": [
+          "Projects"
         ]
       }
     },
@@ -7024,6 +9898,11 @@
           },
           {
             "SessionAuth": []
+          },
+          {
+            "OAuth2": [
+              "analytics:read"
+            ]
           }
         ],
         "summary": "Retrieve campaign totals and engagement",
@@ -7134,6 +10013,11 @@
           },
           {
             "SessionAuth": []
+          },
+          {
+            "OAuth2": [
+              "analytics:read"
+            ]
           }
         ],
         "summary": "Retrieve the daily email time series",
@@ -7255,6 +10139,11 @@
           },
           {
             "SessionAuth": []
+          },
+          {
+            "OAuth2": [
+              "analytics:read"
+            ]
           }
         ],
         "summary": "List the best-performing campaigns",
@@ -7265,7 +10154,7 @@
     },
     "/api/v1/campaigns": {
       "get": {
-        "description": "Cursor-paginated list of campaigns, newest first. Pass the previous response's `next_cursor` as `after` to page forward; `has_more` is false and `next_cursor` is null on the last page.\n\nRequires the `campaigns:read` scope — View your campaigns and their performance.\n\nUnlike the legacy `/api/*` endpoints, v1 responses are the bare payload (no `{ success, data }` envelope) and errors are RFC 9457 problem documents.",
+        "description": "Cursor-paginated list of campaigns, newest first. Pass the previous response's `next_cursor` as `after` to page forward; `has_more` is false and `next_cursor` is null on the last page.\n\nUnlike the legacy `/api/*` endpoints, v1 responses are the bare payload (no `{ success, data }` envelope) and errors are RFC 9457 problem documents.\n\nRequires the `campaigns:read` scope — View your campaigns and their performance.",
         "operationId": "v1ListCampaigns",
         "parameters": [
           {
@@ -7359,6 +10248,11 @@
           },
           {
             "SessionAuth": []
+          },
+          {
+            "OAuth2": [
+              "campaigns:read"
+            ]
           }
         ],
         "summary": "List campaigns",
@@ -7367,7 +10261,7 @@
         ]
       },
       "post": {
-        "description": "Create a campaign in `DRAFT`. Creating never sends — `POST /api/v1/campaigns/{id}/send` is the only operation that puts mail on the wire — so a campaign can be built up and reviewed before it costs anything.\n\nThe `from` address is checked against this project's verified domains before the campaign is written, so a campaign never exists with a sender it cannot use.\n\n`segment_id` is required when `audience_type` is `SEGMENT`; `audience_condition` is required when it is `FILTERED`. Both answer 422 when missing.\n\nRequires the `campaigns:write` scope — Create, edit, schedule, and send your campaigns.",
+        "description": "Create a campaign in `DRAFT`. Creating never sends — `POST /api/v1/campaigns/{id}/send` is the only operation that puts mail on the wire — so a campaign can be built up and reviewed before it costs anything.\n\nThe `from` address is checked against this project's verified domains before the campaign is written, so a campaign never exists with a sender it cannot use.\n\n`segment_id` is required when `audience_type` is `SEGMENT`; `audience_condition` is required when it is `FILTERED`. Both answer 422 when missing.\n\nRequires the `campaigns:write` scope — Create, edit, and organize your campaigns.",
         "operationId": "v1CreateCampaign",
         "parameters": [
           {
@@ -7481,6 +10375,11 @@
           },
           {
             "SessionAuth": []
+          },
+          {
+            "OAuth2": [
+              "campaigns:write"
+            ]
           }
         ],
         "summary": "Create a campaign",
@@ -7491,7 +10390,7 @@
     },
     "/api/v1/campaigns/{id}": {
       "delete": {
-        "description": "Delete a `DRAFT` campaign. A campaign that has sent is the record of what went out and cannot be deleted (400) — cancel it instead if it is still scheduled or in flight.\n\nRequires the `campaigns:write` scope — Create, edit, schedule, and send your campaigns.",
+        "description": "Delete a `DRAFT` campaign. A campaign that has sent is the record of what went out and cannot be deleted (400) — cancel it instead if it is still scheduled or in flight.\n\nRequires the `campaigns:write` scope — Create, edit, and organize your campaigns.",
         "operationId": "v1DeleteCampaign",
         "parameters": [
           {
@@ -7594,6 +10493,11 @@
           },
           {
             "SessionAuth": []
+          },
+          {
+            "OAuth2": [
+              "campaigns:write"
+            ]
           }
         ],
         "summary": "Delete a campaign",
@@ -7695,6 +10599,11 @@
           },
           {
             "SessionAuth": []
+          },
+          {
+            "OAuth2": [
+              "campaigns:read"
+            ]
           }
         ],
         "summary": "Retrieve a campaign",
@@ -7703,7 +10612,7 @@
         ]
       },
       "patch": {
-        "description": "Partial update: an omitted field is left untouched. Only `DRAFT` and `SCHEDULED` campaigns are editable — editing one that is already sending would change what half its recipients receive, so it answers 400.\n\nChanging `from` re-verifies the sender domain. Changing the audience on a `DRAFT` campaign schedules a recipient recount, so `stats.total_recipients` converges shortly after the response.\n\nRequires the `campaigns:write` scope — Create, edit, schedule, and send your campaigns.",
+        "description": "Partial update: an omitted field is left untouched. Only `DRAFT` and `SCHEDULED` campaigns are editable — editing one that is already sending would change what half its recipients receive, so it answers 400.\n\nChanging `from` re-verifies the sender domain. Changing the audience on a `DRAFT` campaign schedules a recipient recount, so `stats.total_recipients` converges shortly after the response.\n\nRequires the `campaigns:write` scope — Create, edit, and organize your campaigns.",
         "operationId": "v1UpdateCampaign",
         "parameters": [
           {
@@ -7816,6 +10725,11 @@
           },
           {
             "SessionAuth": []
+          },
+          {
+            "OAuth2": [
+              "campaigns:write"
+            ]
           }
         ],
         "summary": "Update a campaign",
@@ -7826,7 +10740,7 @@
     },
     "/api/v1/campaigns/{id}/cancel": {
       "post": {
-        "description": "Cancel a `SCHEDULED`, `SENDING`, or `PAUSED` campaign. Terminal — a cancelled campaign cannot be resumed or re-sent. Takes no request body.\n\nLike every action on this resource, the response is the campaign itself, so `status` tells you what the transition did without a second request.\n\nRequires the `campaigns:write` scope — Create, edit, schedule, and send your campaigns.",
+        "description": "Cancel a `SCHEDULED`, `SENDING`, or `PAUSED` campaign. Terminal — a cancelled campaign cannot be resumed or re-sent. Takes no request body.\n\nLike every action on this resource, the response is the campaign itself, so `status` tells you what the transition did without a second request.\n\nRequires the `campaigns:write` scope — Create, edit, and organize your campaigns.",
         "operationId": "v1CancelCampaign",
         "parameters": [
           {
@@ -7929,6 +10843,11 @@
           },
           {
             "SessionAuth": []
+          },
+          {
+            "OAuth2": [
+              "campaigns:write"
+            ]
           }
         ],
         "summary": "Cancel a campaign",
@@ -7939,7 +10858,7 @@
     },
     "/api/v1/campaigns/{id}/pause": {
       "post": {
-        "description": "Pause a `SENDING` campaign. The workers check the flag between batches, so a small number of already-queued emails may still be delivered after this returns. Takes no request body.\n\nRequires the `campaigns:write` scope — Create, edit, schedule, and send your campaigns.",
+        "description": "Pause a `SENDING` campaign. The workers check the flag between batches, so a small number of already-queued emails may still be delivered after this returns. Takes no request body.\n\nRequires the `campaigns:write` scope — Create, edit, and organize your campaigns.",
         "operationId": "v1PauseCampaign",
         "parameters": [
           {
@@ -8042,6 +10961,11 @@
           },
           {
             "SessionAuth": []
+          },
+          {
+            "OAuth2": [
+              "campaigns:write"
+            ]
           }
         ],
         "summary": "Pause a sending campaign",
@@ -8052,7 +10976,7 @@
     },
     "/api/v1/campaigns/{id}/resume": {
       "post": {
-        "description": "Resume a `PAUSED` campaign from the last entry in its per-contact send ledger. That ledger also dedupes, so a contact already sent to is skipped rather than mailed twice. Takes no request body.\n\nRequires the `campaigns:write` scope — Create, edit, schedule, and send your campaigns.",
+        "description": "Resume a `PAUSED` campaign from the last entry in its per-contact send ledger. That ledger also dedupes, so a contact already sent to is skipped rather than mailed twice. Takes no request body.\n\nRequires the `campaigns:write` scope — Create, edit, and organize your campaigns.",
         "operationId": "v1ResumeCampaign",
         "parameters": [
           {
@@ -8155,6 +11079,11 @@
           },
           {
             "SessionAuth": []
+          },
+          {
+            "OAuth2": [
+              "campaigns:write"
+            ]
           }
         ],
         "summary": "Resume a paused campaign",
@@ -8165,7 +11094,7 @@
     },
     "/api/v1/campaigns/{id}/send": {
       "post": {
-        "description": "Start sending immediately, or park the campaign in `SCHEDULED` by passing `scheduled_for` (which must be in the future). The request body may be omitted entirely to send now.\n\n**Send an `Idempotency-Key`.** This is the operation that cannot be undone: a retry without one starts a second fan-out over the same audience. The key is scoped to this campaign, so the same key on a different campaign is a `422 idempotency_key_reused` rather than a replay of the first campaign's response.\n\nAnswers 400 when the campaign is not `DRAFT`/`SCHEDULED` or has no recipients, and 403 when the send would exceed the project's billing limit.\n\nRequires the `campaigns:write` scope — Create, edit, schedule, and send your campaigns.",
+        "description": "Start sending immediately, or park the campaign in `SCHEDULED` by passing `scheduled_for` (which must be in the future). The request body may be omitted entirely to send now.\n\n**Send an `Idempotency-Key`.** This is the operation that cannot be undone: a retry without one starts a second fan-out over the same audience. The key is scoped to this campaign, so the same key on a different campaign is a `422 idempotency_key_reused` rather than a replay of the first campaign's response.\n\nAnswers 400 when the campaign is not `DRAFT`/`SCHEDULED` or has no recipients, and 403 when the send would exceed the project's billing limit.\n\nRequires the `campaigns:send` scope — Send or schedule your campaigns to their audience.",
         "operationId": "v1SendCampaign",
         "parameters": [
           {
@@ -8300,6 +11229,11 @@
           },
           {
             "SessionAuth": []
+          },
+          {
+            "OAuth2": [
+              "campaigns:send"
+            ]
           }
         ],
         "summary": "Send or schedule a campaign",
@@ -8403,11 +11337,270 @@
           },
           {
             "SessionAuth": []
+          },
+          {
+            "OAuth2": [
+              "campaigns:read"
+            ]
           }
         ],
         "summary": "Retrieve campaign statistics",
         "tags": [
           "Campaigns"
+        ]
+      }
+    },
+    "/api/v1/emails": {
+      "post": {
+        "description": "Send one transactional email and receive its delivery status in the same response. Accepts a `template` id or an inline `subject` + `body`.\n\nThis is the send to reach for when you need to know what happened. The legacy `POST /api/emails` answers with row ids and no status, so telling an accepted send from a refused one costs a second request; here the receipt carries `status`, and `from` reports the sender actually used — which is worth reading, since a template may have supplied it.\n\nExactly ONE recipient. A single receipt cannot describe a fan-out, so `to` takes one address: use `cc`/`bcc` to copy others on the same message, and `POST /api/emails/batch` to send different ones.\n\n`202 Accepted` is the success answer, and `PENDING` the usual `status`: the message is queued for the sending pipeline, not yet handed to the provider. Later states (`DELIVERED`, `BOUNCED`, …) arrive by webhook.\n\nAn optional `Idempotency-Key` header (1–255 chars, 24h TTL) makes a retry safe: the first request wins and a retry carrying the same key AND body replays its receipt. Reusing a key with a different body answers 422 rather than serving another request's result.\n\nRequires the `emails:send` scope — Send emails from your verified domains.",
+        "operationId": "v1SendEmail",
+        "parameters": [
+          {
+            "description": "Replay-safety key (24h TTL). Reuse it only to retry the identical request.",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "description": "Replay-safety key (24h TTL). Reuse it only to retry the identical request.",
+              "maxLength": 255,
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SendEmailV1"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmailV1"
+                }
+              }
+            },
+            "description": "Email queued"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "`invalid_api_key` or `invalid_session` — missing or invalid credentials."
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "`scope_missing`, `project_disabled`, `domain_not_allowed` — the `from` address does not resolve to a verified domain on this project — or `content_rejected`: automated content review flagged the message and it was not sent."
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "`resource_not_found` — `template` names a template that does not belong to this project."
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "`conflict` — a request with this `Idempotency-Key` is still in flight. Retry shortly."
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "`validation_error` — the body did not match the schema; or `idempotency_key_reused` — this `Idempotency-Key` was already spent on a request with a different body. Send a new key."
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "`rate_limited` — see `Retry-After` and the `RateLimit` headers."
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "`internal_error`."
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "`content_review_unavailable` — content review could not run for this new account, so the message was not accepted. Safe to retry after a short delay."
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          },
+          {
+            "SessionAuth": []
+          },
+          {
+            "OAuth2": [
+              "emails:send"
+            ]
+          }
+        ],
+        "summary": "Send a transactional email",
+        "tags": [
+          "Emails"
+        ]
+      }
+    },
+    "/api/v1/emails/test": {
+      "post": {
+        "description": "Prove that sending works — before any domain, DNS record or verification exists.\n\nThe message is sent FROM this project's sandbox address (`sandbox_address` on `GET /api/v1/projects`) and can only reach ONE recipient: the project owner's own verified account email, which is also what `to` defaults to. Naming any other recipient answers 403, and naming a `from` answers 422 — the sender is resolved server-side and a request that expects a different one is refused rather than quietly re-addressed.\n\nThat restriction is the reason `emails:test` is a separate, non-sensitive scope: a call under it cannot put mail in a stranger's inbox, so it can sit in a default grant where `emails:send` may not. It is not a way to send real mail cheaply — use `POST /api/v1/emails` for that.\n\nSandbox sends are capped per project per day, and the response's `sandbox: true` marks the receipt so a relayed summary cannot pass a test send off as a real one.\n\nRequires the `emails:test` scope — Send test emails to your own address from the Sendly sandbox.",
+        "operationId": "v1SendTestEmail",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SendTestEmailV1"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmailTestV1"
+                }
+              }
+            },
+            "description": "Test email queued"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "`invalid_api_key` or `invalid_session` — missing or invalid credentials."
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "`scope_missing`, `project_disabled`, or `forbidden` — the recipient is not the project owner's own verified account email (including the case where that address is not verified yet, so there is no default recipient), or `content_rejected` from automated content review."
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "`conflict` — this project has no sandbox sender. The handle is derived from the project owner's email and this project has no owner; no retry fixes it."
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "`validation_error` — the body did not match the schema, most often because it named a `from`. A test send always comes from the sandbox address."
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "`rate_limited` — the project's daily sandbox send cap is spent. It resets at 00:00 UTC."
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "`internal_error`."
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "`content_review_unavailable` — content review could not run for this new account. Safe to retry."
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          },
+          {
+            "SessionAuth": []
+          },
+          {
+            "OAuth2": [
+              "emails:test"
+            ]
+          }
+        ],
+        "summary": "Send a sandbox test email",
+        "tags": [
+          "Emails"
         ]
       }
     },
@@ -8519,6 +11712,11 @@
           },
           {
             "SessionAuth": []
+          },
+          {
+            "OAuth2": [
+              "events:read"
+            ]
           }
         ],
         "summary": "List events",
@@ -8527,7 +11725,7 @@
         ]
       },
       "post": {
-        "description": "Records a custom event, optionally attached to a contact. Events drive segment membership and workflow triggers, so a matching enabled workflow starts as a result of this call.\n\n`contact_id` must already exist in this project — unlike `POST /api/track`, this endpoint never creates contacts. Omit it for a project-level event.\n\nReserved system event names (`email.*`, `contact.subscribed`/`unsubscribed`, `segment.*.entry`/`.exit`) are rejected with 422: they are written by Sendly's own pipeline and accepting them from a caller would corrupt the series segments read.\n\nThis endpoint does NOT require an `Idempotency-Key`. Events are append-only and the highest-volume write on the surface; a duplicate is a data-quality question for the caller, not a money-path hazard.\n\nRequires the `events:write` scope — Record custom events for your contacts. Sending-only (`pk_*`) keys do NOT hold it.",
+        "description": "Records a custom event, optionally attached to a contact. Events drive segment membership and workflow triggers, so a matching enabled workflow starts as a result of this call.\n\n`contact_id` must already exist in this project — unlike `POST /api/track`, this endpoint never creates contacts. Omit it for a project-level event.\n\nReserved system event names (`email.*`, `contact.subscribed`/`unsubscribed`, `segment.*.entry`/`.exit`) are rejected with 422: they are written by Sendly's own pipeline and accepting them from a caller would corrupt the series segments read.\n\nThis endpoint does NOT require an `Idempotency-Key`. Events are append-only and the highest-volume write on the surface; a duplicate is a data-quality question for the caller, not a money-path hazard.\n\nSending-only (`pk_*`) keys cannot record events — they hold the send capability and nothing else.\n\nRequires the `events:write` scope — Record custom events for your contacts.",
         "operationId": "v1TrackEvent",
         "requestBody": {
           "content": {
@@ -8617,6 +11815,11 @@
           },
           {
             "SessionAuth": []
+          },
+          {
+            "OAuth2": [
+              "events:write"
+            ]
           }
         ],
         "summary": "Record an event",
@@ -8697,6 +11900,11 @@
           },
           {
             "SessionAuth": []
+          },
+          {
+            "OAuth2": [
+              "events:read"
+            ]
           }
         ],
         "summary": "List event names",
@@ -8807,11 +12015,111 @@
           },
           {
             "SessionAuth": []
+          },
+          {
+            "OAuth2": [
+              "events:read"
+            ]
           }
         ],
         "summary": "Retrieve event counts",
         "tags": [
           "Events"
+        ]
+      }
+    },
+    "/api/v1/projects": {
+      "get": {
+        "description": "The project the presented credential is scoped to — resolved from the API key, or from the `x-project-id` header for a session or delegated token. Singular despite the plural path, like `/api/v1/usage`: every v1 operation acts on exactly one project.\n\n`sandbox_address` is this project's quick-start sender. It works with no domain setup, but only to the project owner's own verified address and under a daily cap — it is how you prove sending works end to end before any DNS exists. It is null when no handle can be derived (a project with no owner).\n\nTo enumerate every project you belong to — a different question, and not project-scoped — use `GET /api/users/me/projects`.\n\nRequires the `projects:read` scope — View your projects and their settings.",
+        "operationId": "v1GetProject",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectV1"
+                }
+              }
+            },
+            "description": "The authenticated project"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "`invalid_api_key` or `invalid_session` — missing or invalid credentials."
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "`scope_missing`, `project_access_denied`, or `project_disabled`."
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "`resource_not_found` — the project was deleted between authentication and this read."
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "`validation_error` — query, path, or body parameters did not match the schema."
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "`rate_limited` — see `Retry-After` and the `RateLimit` headers."
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "`internal_error`."
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          },
+          {
+            "SessionAuth": []
+          },
+          {
+            "OAuth2": [
+              "projects:read"
+            ]
+          }
+        ],
+        "summary": "Retrieve the authenticated project",
+        "tags": [
+          "Projects"
         ]
       }
     },
@@ -8911,6 +12219,11 @@
           },
           {
             "SessionAuth": []
+          },
+          {
+            "OAuth2": [
+              "segments:read"
+            ]
           }
         ],
         "summary": "List segments",
@@ -9009,6 +12322,11 @@
           },
           {
             "SessionAuth": []
+          },
+          {
+            "OAuth2": [
+              "segments:write"
+            ]
           }
         ],
         "summary": "Create a segment",
@@ -9122,6 +12440,11 @@
           },
           {
             "SessionAuth": []
+          },
+          {
+            "OAuth2": [
+              "segments:write"
+            ]
           }
         ],
         "summary": "Delete a segment",
@@ -9223,6 +12546,11 @@
           },
           {
             "SessionAuth": []
+          },
+          {
+            "OAuth2": [
+              "segments:read"
+            ]
           }
         ],
         "summary": "Retrieve a segment",
@@ -9334,6 +12662,11 @@
           },
           {
             "SessionAuth": []
+          },
+          {
+            "OAuth2": [
+              "segments:write"
+            ]
           }
         ],
         "summary": "Update a segment",
@@ -9459,6 +12792,11 @@
           },
           {
             "SessionAuth": []
+          },
+          {
+            "OAuth2": [
+              "segments:read"
+            ]
           }
         ],
         "summary": "List the contacts in a segment",
@@ -9539,6 +12877,11 @@
           },
           {
             "SessionAuth": []
+          },
+          {
+            "OAuth2": [
+              "usage:read"
+            ]
           }
         ],
         "summary": "Retrieve current usage and limits",
@@ -9549,7 +12892,7 @@
     },
     "/api/v1/workflows": {
       "get": {
-        "description": "Cursor-paginated list of workflows, newest first. Pass the previous response's `next_cursor` as `after` to page forward; `has_more` is false and `next_cursor` is null on the last page.\n\nRequires the `workflows:read` scope — View your automation workflows and their runs.\n\nUnlike the legacy `/api/*` endpoints, v1 responses are the bare payload (no `{ success, data }` envelope) and errors are RFC 9457 problem documents.",
+        "description": "Cursor-paginated list of workflows, newest first. Pass the previous response's `next_cursor` as `after` to page forward; `has_more` is false and `next_cursor` is null on the last page.\n\nUnlike the legacy `/api/*` endpoints, v1 responses are the bare payload (no `{ success, data }` envelope) and errors are RFC 9457 problem documents.\n\nRequires the `workflows:read` scope — View your automation workflows and their runs.",
         "operationId": "v1ListWorkflows",
         "parameters": [
           {
@@ -9643,6 +12986,11 @@
           },
           {
             "SessionAuth": []
+          },
+          {
+            "OAuth2": [
+              "workflows:read"
+            ]
           }
         ],
         "summary": "List workflows",
@@ -9731,6 +13079,11 @@
           },
           {
             "SessionAuth": []
+          },
+          {
+            "OAuth2": [
+              "workflows:write"
+            ]
           }
         ],
         "summary": "Create a workflow",
@@ -9834,6 +13187,11 @@
           },
           {
             "SessionAuth": []
+          },
+          {
+            "OAuth2": [
+              "workflows:write"
+            ]
           }
         ],
         "summary": "Cancel a workflow execution",
@@ -9947,6 +13305,11 @@
           },
           {
             "SessionAuth": []
+          },
+          {
+            "OAuth2": [
+              "workflows:write"
+            ]
           }
         ],
         "summary": "Delete a workflow",
@@ -10048,6 +13411,11 @@
           },
           {
             "SessionAuth": []
+          },
+          {
+            "OAuth2": [
+              "workflows:read"
+            ]
           }
         ],
         "summary": "Retrieve a workflow",
@@ -10169,6 +13537,11 @@
           },
           {
             "SessionAuth": []
+          },
+          {
+            "OAuth2": [
+              "workflows:write"
+            ]
           }
         ],
         "summary": "Update a workflow",
@@ -10312,6 +13685,11 @@
           },
           {
             "SessionAuth": []
+          },
+          {
+            "OAuth2": [
+              "workflows:read"
+            ]
           }
         ],
         "summary": "List a workflow's executions",
@@ -10433,6 +13811,11 @@
           },
           {
             "SessionAuth": []
+          },
+          {
+            "OAuth2": [
+              "workflows:write"
+            ]
           }
         ],
         "summary": "Start a workflow for a contact",
@@ -10550,6 +13933,11 @@
           },
           {
             "SessionAuth": []
+          },
+          {
+            "OAuth2": [
+              "workflows:read"
+            ]
           }
         ],
         "summary": "Retrieve workflow statistics",
@@ -10613,7 +14001,7 @@
     },
     "/api/webhooks": {
       "get": {
-        "description": "List all user-managed outbound webhooks for the auth'd project (secrets are not returned).",
+        "description": "List all user-managed outbound webhooks for the auth'd project (secrets are not returned).\n\nRequires the `webhooks:read` scope — View your webhook endpoints and their delivery history.",
         "operationId": "listWebhooks",
         "responses": {
           "200": {
@@ -10683,6 +14071,11 @@
           },
           {
             "SessionAuth": []
+          },
+          {
+            "OAuth2": [
+              "webhooks:read"
+            ]
           }
         ],
         "summary": "List user webhooks",
@@ -10691,7 +14084,7 @@
         ]
       },
       "post": {
-        "description": "Register a new outbound webhook. The plaintext signing secret is returned exactly once — store it securely.",
+        "description": "Register a new outbound webhook. The plaintext signing secret is returned exactly once — store it securely.\n\nRequires the `webhooks:write` scope — Create, edit, and delete your webhook endpoints.",
         "operationId": "createWebhook",
         "requestBody": {
           "content": {
@@ -10771,6 +14164,11 @@
           },
           {
             "SessionAuth": []
+          },
+          {
+            "OAuth2": [
+              "webhooks:write"
+            ]
           }
         ],
         "summary": "Create a webhook",
@@ -10781,7 +14179,7 @@
     },
     "/api/webhooks/{id}": {
       "delete": {
-        "description": "Hard-delete a webhook. Cascades to all WebhookCall rows.",
+        "description": "Hard-delete a webhook. Cascades to all WebhookCall rows.\n\nRequires the `webhooks:write` scope — Create, edit, and delete your webhook endpoints.",
         "operationId": "deleteWebhook",
         "parameters": [
           {
@@ -10872,6 +14270,11 @@
           },
           {
             "SessionAuth": []
+          },
+          {
+            "OAuth2": [
+              "webhooks:write"
+            ]
           }
         ],
         "summary": "Delete a webhook",
@@ -10880,6 +14283,7 @@
         ]
       },
       "get": {
+        "description": "Requires the `webhooks:read` scope — View your webhook endpoints and their delivery history.",
         "operationId": "getWebhook",
         "parameters": [
           {
@@ -10970,6 +14374,11 @@
           },
           {
             "SessionAuth": []
+          },
+          {
+            "OAuth2": [
+              "webhooks:read"
+            ]
           }
         ],
         "summary": "Get a webhook",
@@ -10978,6 +14387,7 @@
         ]
       },
       "patch": {
+        "description": "Requires the `webhooks:write` scope — Create, edit, and delete your webhook endpoints.",
         "operationId": "updateWebhook",
         "parameters": [
           {
@@ -11078,6 +14488,11 @@
           },
           {
             "SessionAuth": []
+          },
+          {
+            "OAuth2": [
+              "webhooks:write"
+            ]
           }
         ],
         "summary": "Update a webhook",
@@ -11088,7 +14503,7 @@
     },
     "/api/webhooks/{id}/calls": {
       "get": {
-        "description": "Cursor-paginated list of recent delivery attempts for a single webhook.",
+        "description": "Cursor-paginated list of recent delivery attempts for a single webhook.\n\nRequires the `webhooks:read` scope — View your webhook endpoints and their delivery history.",
         "operationId": "listWebhookCalls",
         "parameters": [
           {
@@ -11198,6 +14613,11 @@
           },
           {
             "SessionAuth": []
+          },
+          {
+            "OAuth2": [
+              "webhooks:read"
+            ]
           }
         ],
         "summary": "List recent webhook calls",
@@ -11208,7 +14628,7 @@
     },
     "/api/webhooks/{id}/rotate-secret": {
       "post": {
-        "description": "Generate a new shared secret. Returns the new plaintext secret exactly once.",
+        "description": "Generate a new shared secret. Returns the new plaintext secret exactly once.\n\nRequires the `webhooks:write` scope — Create, edit, and delete your webhook endpoints.",
         "operationId": "rotateWebhookSecret",
         "parameters": [
           {
@@ -11299,6 +14719,11 @@
           },
           {
             "SessionAuth": []
+          },
+          {
+            "OAuth2": [
+              "webhooks:write"
+            ]
           }
         ],
         "summary": "Rotate the webhook signing secret",
@@ -11347,6 +14772,10 @@
       "name": "Webhooks"
     },
     {
+      "description": "Project-scoped sending/API credentials. All four operations are documented; minting and rotation answer with a one-time reveal link rather than the secret, so a delegated caller never receives a key it could use.",
+      "name": "API Keys"
+    },
+    {
       "description": "Project-scoped suppression list. Hard bounces and complaints land here automatically.",
       "name": "Suppression"
     },
@@ -11365,6 +14794,14 @@
     {
       "description": "Current email usage against the monthly and daily limits the platform enforces.",
       "name": "Usage"
+    },
+    {
+      "description": "The project a credential is scoped to, and creating new ones. Configuring an existing project stays a dashboard action.",
+      "name": "Projects"
+    },
+    {
+      "description": "Real receiving mailboxes on your verified domains. Creating one changes how that domain's mail is routed; the messages a mailbox receives are not part of this API.",
+      "name": "Mailboxes"
     },
     {
       "description": "Open email-validation endpoint (no auth required). Used by the marketing-site verifier.",
