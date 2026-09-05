@@ -7,7 +7,14 @@ import json
 import pytest
 
 from sendly import SendlyValidationError
-from support import Recorder, SequenceRecorder, json_response, make_client, problem_response
+from support import (
+    Recorder,
+    SequenceRecorder,
+    cursor_page,
+    json_response,
+    make_client,
+    problem_response,
+)
 
 
 def validation(email: str, verdict: str) -> dict[str, object]:
@@ -27,11 +34,12 @@ def validation(email: str, verdict: str) -> dict[str, object]:
 def results_page(items: list[dict[str, object]], *, cursor: str | None = None) -> dict[str, object]:
     """One page of a run's results.
 
-    Deliberately not ``support.cursor_page``: this endpoint names the next page
-    ``cursor``, not ``next_cursor``, so the shared builder would describe a shape
-    the API never sends.
+    ``support.cursor_page`` under a local name. Through 1.0 this was its own
+    builder, because the endpoint named the next page ``cursor`` rather than
+    ``next_cursor`` -- and a local fixture is exactly how a second dialect stays
+    invisible, so it delegates now rather than repeating the shape.
     """
-    return {"data": items, "cursor": cursor, "has_more": cursor is not None}
+    return cursor_page(items, next_cursor=cursor)
 
 
 def test_validate_emails_posts_the_batch():
@@ -101,7 +109,7 @@ def test_get_run_hits_the_run_id_path():
     assert rec.request.method == "GET"
 
 
-def test_list_results_serializes_limit_verdict_and_the_cursor_parameter():
+def test_list_results_serializes_limit_verdict_and_the_after_parameter():
     page = results_page([validation("a@example.com", "undeliverable")])
     rec = Recorder(json_response(200, page))
     client = make_client(rec)
@@ -109,19 +117,19 @@ def test_list_results_serializes_limit_verdict_and_the_cursor_parameter():
     # Returned as-is: the envelope, not its `data` array.
     assert (
         client.validation.list_results(
-            "vrun_1", {"limit": 50, "verdict": "undeliverable", "cursor": "cur_1"}
+            "vrun_1", {"limit": 50, "verdict": "undeliverable", "after": "cur_1"}
         )
         == page
     )
     url = str(rec.request.url)
     assert url == (
         "http://localhost/api/v1/validation-runs/vrun_1/results"
-        "?limit=50&verdict=undeliverable&cursor=cur_1"
+        "?limit=50&verdict=undeliverable&after=cur_1"
     )
-    assert "after=" not in url
+    assert "cursor=" not in url
 
 
-def test_iter_list_results_pages_on_cursor_not_after():
+def test_iter_list_results_pages_on_after_the_one_v1_page_parameter():
     rec = SequenceRecorder(
         json_response(
             200, results_page([validation("a@example.com", "undeliverable")], cursor="cur_2")
@@ -138,7 +146,7 @@ def test_iter_list_results_pages_on_cursor_not_after():
     assert emails == ["a@example.com", "b@example.com"]
     assert rec.urls == [
         "http://localhost/api/v1/validation-runs/vrun_1/results?verdict=undeliverable",
-        "http://localhost/api/v1/validation-runs/vrun_1/results?verdict=undeliverable&cursor=cur_2",
+        "http://localhost/api/v1/validation-runs/vrun_1/results?verdict=undeliverable&after=cur_2",
     ]
 
 

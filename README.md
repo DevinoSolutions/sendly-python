@@ -849,7 +849,7 @@ for. Only a `SENT` campaign qualifies; a retry already running answers 409
 
 ### Pagination
 
-Most v1 lists answer `{data, has_more, next_cursor}` — an opaque forward-only
+Every v1 list answers `{data, has_more, next_cursor}` — an opaque forward-only
 cursor, and no total. Page it yourself with `limit` (1–100, default 20) and
 `after`:
 
@@ -875,27 +875,12 @@ mid-pagination invalidates the cursor and the API answers `422 validation_error`
 telling you to restart from the first page — which is exactly why `iter_*` holds
 the query fixed and only advances the cursor.
 
-**Two endpoints name their cursor differently, and this is the one genuinely
-surprising thing in the surface.** `topics.list` and `validation.list_results`
-take `cursor` and answer `cursor`, where every other v1 list takes `after` and
-answers `next_cursor`. Both kinds are forward-only opaque cursors and both stop
-on `has_more: False`; only the parameter names differ.
-
-```python
-# after / next_cursor — every list except the two below.
-page = sendly.templates.list_v1({"limit": 50})
-page = sendly.templates.list_v1({"limit": 50, "after": page["next_cursor"]})
-
-# cursor / cursor — topics and validation results.
-page = sendly.topics.list({"limit": 50})
-page = sendly.topics.list({"limit": 50, "cursor": page["cursor"]})
-```
-
-`topics.iter_list` and `validation.iter_list_results` hide the difference — they
-are written out by hand for exactly this reason, because the shared cursor
-helper sends `after` and reads `next_cursor` and would otherwise re-fetch page
-one forever. Drive pages by hand only if you know which of the two a given
-endpoint speaks.
+Through 1.0 there were two dialects: `topics.list` and
+`validation.list_results` took `cursor` and answered `cursor` where every other
+v1 list took `after`. The platform collapsed that for 1.1, so there is one shape
+to learn and one to write. If you were driving either of those two by hand, pass
+`after` and read `next_cursor`. (The LEGACY `/api/*` lists are a separate
+surface and still take `cursor` — that has not changed.)
 
 The seventeen iterators: `campaigns.iter_list`, `campaigns.iter_list_failures`,
 `contacts.iter_list_v1`, `deliverability.iter_list_dmarc_reports`,

@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from sendly.resources._helpers import encode_path_segment
+from sendly.resources._pagination import iterate_cursor
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -75,10 +76,8 @@ class ValidationResource:
         acting on a run, and ``unknown`` is the one never to act on, since those
         addresses were not actually checked.
 
-        This list pages on ``cursor``, not the ``after`` every other v1
-        collection takes, and its envelope carries the next page under
-        ``cursor`` rather than ``next_cursor``. :meth:`iter_list_results` drives
-        that loop for you.
+        Pages on ``after`` and answers ``next_cursor``, like every other v1
+        collection. :meth:`iter_list_results` drives that loop for you.
         """
         response: EmailValidationResultListV1 = self._client.request(
             method="GET",
@@ -90,25 +89,11 @@ class ValidationResource:
     def iter_list_results(self, id: str, query: Query | None = None) -> Iterator[JSONDict]:
         """Iterate every result across pages, one address's verdict at a time.
 
-        Hand-rolled rather than routed through
-        :func:`~sendly.resources._pagination.iterate_cursor`: the shared helper
-        sends ``after`` and reads ``next_cursor``, and this endpoint speaks
-        ``cursor`` on both sides, so the helper would send an ignored parameter
-        and re-fetch page one forever. Stops on ``has_more`` false, a null
-        cursor, or a cursor the server repeats.
+        This was hand-rolled through 1.0, because the endpoint spoke
+        ``cursor`` on both sides while
+        :func:`~sendly.resources._pagination.iterate_cursor` sends ``after``
+        and reads ``next_cursor`` -- so routing it through the helper would have
+        sent an ignored parameter and re-fetched page one forever. The route
+        speaks the one dialect now.
         """
-        params: dict[str, Any] = dict(query or {})
-        while True:
-            page = self.list_results(id, params)
-            if not isinstance(page, dict):
-                return
-            items = page.get("data")
-            if not isinstance(items, list):
-                return
-            yield from items
-            if not page.get("has_more"):
-                return
-            cursor = page.get("cursor")
-            if not cursor or cursor == params.get("cursor"):
-                return
-            params = {**params, "cursor": cursor}
+        return iterate_cursor(lambda params: self.list_results(id, params), query)

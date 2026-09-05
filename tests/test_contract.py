@@ -137,18 +137,14 @@ def _resolve_ref(spec: dict[str, Any], node: Any) -> Any:
 #: Members that identify a ``/api/v1`` cursor-list envelope. No ``total`` --
 #: the API deliberately does not count a project's rows on every page.
 #:
-#: There are TWO of them, and the second is not a typo in the spec. Most v1 lists
-#: answer ``next_cursor`` and take ``after``; topics and validation results answer
-#: ``cursor`` and take ``cursor``. Both are forward-only opaque cursors and both are
-#: walkable, so this guard has to recognise both -- recognising only the first read
-#: the second as "not paginated" and then flagged its own iterator as stray, which
-#: is the guard being wrong about the shape rather than the SDK being wrong about
-#: the endpoint. The resources that speak the second shape drive the page loop
-#: themselves, because ``iterate_cursor`` sends ``after`` and reads ``next_cursor``.
-CURSOR_ENVELOPES = (
-    frozenset({"data", "has_more", "next_cursor"}),
-    frozenset({"data", "has_more", "cursor"}),
-)
+#: ONE of them, as of the 1.1 contract. There were two through 1.0: topics and
+#: validation results answered ``cursor`` and took ``cursor``, so the shared
+#: walker sent a parameter they ignored and read a field they never returned, and
+#: this guard had to recognise the second shape or it read those endpoints as "not
+#: paginated" and flagged their own iterators as stray. Detection stays by SHAPE
+#: rather than by an endpoint list, so a resource that reintroduces a second
+#: dialect fails here instead of being assumed away.
+CURSOR_ENVELOPES = (frozenset({"data", "has_more", "next_cursor"}),)
 
 
 def _cursor_list_operations(spec: dict[str, Any]) -> set[tuple[str, str]]:

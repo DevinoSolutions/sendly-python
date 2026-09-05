@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 
-from support import Recorder, SequenceRecorder, json_response, make_client
+from support import Recorder, SequenceRecorder, cursor_page, json_response, make_client
 
 TOPIC = {
     "id": "top_1",
@@ -22,10 +22,13 @@ TOPIC = {
 def topic_page(items: list[object], *, cursor: str | None = None) -> dict[str, object]:
     """One page of the topics list envelope.
 
-    Deliberately not ``support.cursor_page``: that builds the ``next_cursor``
-    field the rest of v1 answers with, and topics answer ``cursor`` instead.
+    ``support.cursor_page`` under a local name. Through 1.0 this was its own
+    builder, because topics answered the next page under ``cursor`` where the
+    rest of v1 answers ``next_cursor`` -- and a local fixture is exactly how a
+    second dialect stays invisible, so it delegates now rather than repeating
+    the shape.
     """
-    return {"data": items, "has_more": cursor is not None, "cursor": cursor}
+    return cursor_page(items, next_cursor=cursor)
 
 
 def test_list_returns_the_bare_page_envelope_and_all():
@@ -38,18 +41,18 @@ def test_list_returns_the_bare_page_envelope_and_all():
     assert str(rec.request.url) == "http://localhost/api/v1/topics"
 
 
-def test_list_serializes_limit_cursor_and_include_archived():
+def test_list_serializes_limit_after_and_include_archived():
     rec = Recorder(json_response(200, topic_page([])))
     client = make_client(rec)
 
-    client.topics.list({"limit": 10, "cursor": "cur_top", "include_archived": True})
+    client.topics.list({"limit": 10, "after": "cur_top", "include_archived": True})
 
     url = str(rec.request.url)
     assert "limit=10" in url
-    assert "cursor=cur_top" in url
+    assert "after=cur_top" in url
     assert "include_archived=true" in url or "include_archived=True" in url
-    # The v1 pagination parameter everywhere else; topics must not emit it.
-    assert "after=" not in url
+    # `cursor` was this endpoint's own parameter through 1.0 and is not one now.
+    assert "cursor=" not in url
 
 
 def test_create_posts_the_key_and_opt_in_default():
@@ -125,7 +128,7 @@ def test_iter_list_walks_every_page_and_stops():
     assert len(rec.requests) == 2
 
 
-def test_iter_list_follows_cursor_never_after():
+def test_iter_list_follows_after_the_one_v1_page_parameter():
     rec = SequenceRecorder(
         json_response(200, topic_page([{"id": "top_1"}], cursor="cur_2")),
         json_response(200, topic_page([{"id": "top_2"}])),
@@ -135,7 +138,7 @@ def test_iter_list_follows_cursor_never_after():
     assert [t["id"] for t in client.topics.iter_list({"limit": 1})] == ["top_1", "top_2"]
     assert rec.urls == [
         "http://localhost/api/v1/topics?limit=1",
-        "http://localhost/api/v1/topics?limit=1&cursor=cur_2",
+        "http://localhost/api/v1/topics?limit=1&after=cur_2",
     ]
 
 
@@ -145,5 +148,5 @@ def test_iter_list_stops_when_a_page_repeats_the_cursor_it_was_handed():
     rec = SequenceRecorder(json_response(200, topic_page([{"id": "top_1"}], cursor="cur_stuck")))
     client = make_client(rec)
 
-    assert [t["id"] for t in client.topics.iter_list({"cursor": "cur_stuck"})] == ["top_1"]
+    assert [t["id"] for t in client.topics.iter_list({"after": "cur_stuck"})] == ["top_1"]
     assert len(rec.requests) == 1

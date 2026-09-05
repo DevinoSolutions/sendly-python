@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 
 import httpx
 
@@ -84,6 +84,10 @@ class SequenceRecorder:
         return [str(request.url) for request in self.requests]
 
 
-def cursor_page(items: list[object], *, next_cursor: str | None = None) -> dict[str, object]:
-    """Build an ``/api/v1`` cursor-list envelope: ``{data, has_more, next_cursor}``."""
-    return {"data": items, "has_more": next_cursor is not None, "next_cursor": next_cursor}
+def cursor_page(items: Sequence[object], *, next_cursor: str | None = None) -> dict[str, object]:
+    """Build an ``/api/v1`` cursor-list envelope: ``{data, has_more, next_cursor}``.
+
+    ``Sequence``, not ``list``: the per-resource page builders that delegate here
+    hand over their own element types, and ``list`` is invariant.
+    """
+    return {"data": list(items), "has_more": next_cursor is not None, "next_cursor": next_cursor}

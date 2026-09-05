@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from sendly.resources._helpers import encode_path_segment
+from sendly.resources._pagination import iterate_cursor
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -34,8 +35,8 @@ class TopicsResource:
     def list(self, query: Query | None = None) -> TopicListV1:
         """List topics, newest first.
 
-        Accepts ``limit`` (1-100), ``cursor`` -- not the ``after`` the rest of
-        ``/api/v1`` takes -- and ``include_archived``. Archived topics are
+        Accepts ``limit`` (1-100), ``after`` and ``include_archived``, the
+        same pagination parameters as every other v1 list. Archived topics are
         omitted unless you ask for them; there is no delete, because a topic is
         where people's answers are recorded.
         """
@@ -47,25 +48,13 @@ class TopicsResource:
     def iter_list(self, query: Query | None = None) -> Iterator[JSONDict]:
         """Iterate every topic across pages, following the cursor for you.
 
-        Written out rather than delegated to :func:`iterate_cursor` because this
-        endpoint names its cursor ``cursor`` on both sides -- the query
-        parameter and the response field -- where every other v1 list takes
-        ``after`` and answers ``next_cursor``.
+        This was written out through 1.0, because the endpoint named its cursor
+        ``cursor`` on both sides where every other v1 list takes ``after`` and
+        answers ``next_cursor`` -- so the shared walker would have sent a
+        parameter the route ignored and read a field it never returned. The
+        route speaks the one dialect now.
         """
-        params: dict[str, Any] = dict(query or {})
-        while True:
-            page = self.list(params)
-            items = page.get("data")
-            if not isinstance(items, list):
-                return
-            yield from items
-            if not page.get("has_more"):
-                return
-            cursor = page.get("cursor")
-            # A page that repeats the cursor it was handed would loop forever.
-            if not cursor or cursor == params.get("cursor"):
-                return
-            params = {**params, "cursor": cursor}
+        return iterate_cursor(self.list, query)
 
     def create(self, body: Body) -> TopicV1:
         """Create a topic. Requires ``key`` and ``name``.
