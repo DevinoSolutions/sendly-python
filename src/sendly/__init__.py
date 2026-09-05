@@ -33,6 +33,7 @@ from sendly.errors import (
 from sendly.resources.analytics import AnalyticsResource
 from sendly.resources.campaigns import CampaignsResource
 from sendly.resources.contacts import ContactsResource
+from sendly.resources.deliverability import DeliverabilityResource
 from sendly.resources.domains import DomainsResource
 from sendly.resources.emails import EmailsResource
 from sendly.resources.events import EventsResource
@@ -40,9 +41,12 @@ from sendly.resources.lists import ListsResource
 from sendly.resources.mailboxes import MailboxesResource
 from sendly.resources.projects import ProjectsResource
 from sendly.resources.segments import SegmentsResource
+from sendly.resources.snippets import SnippetsResource
 from sendly.resources.suppression import SuppressionResource
 from sendly.resources.templates import TemplatesResource
+from sendly.resources.topics import TopicsResource
 from sendly.resources.usage import UsageResource
+from sendly.resources.validation import ValidationResource
 from sendly.resources.verify import VerifyResource
 from sendly.resources.webhooks import WebhooksResource
 from sendly.resources.workflows import WorkflowsResource
@@ -57,6 +61,7 @@ __all__ = [
     "AnalyticsResource",
     "CampaignsResource",
     "ContactsResource",
+    "DeliverabilityResource",
     "DomainsResource",
     "EmailsResource",
     "EventsResource",
@@ -74,9 +79,12 @@ __all__ = [
     "SendlyRateLimitError",
     "SendlyServerError",
     "SendlyValidationError",
+    "SnippetsResource",
     "SuppressionResource",
     "TemplatesResource",
+    "TopicsResource",
     "UsageResource",
+    "ValidationResource",
     "VerifyResource",
     "WebhooksResource",
     "WorkflowsResource",

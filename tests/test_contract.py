@@ -134,9 +134,21 @@ def _resolve_ref(spec: dict[str, Any], node: Any) -> Any:
     return node
 
 
-#: Members that identify the ``/api/v1`` cursor-list envelope. No ``total`` --
+#: Members that identify a ``/api/v1`` cursor-list envelope. No ``total`` --
 #: the API deliberately does not count a project's rows on every page.
-CURSOR_ENVELOPE = frozenset({"data", "has_more", "next_cursor"})
+#:
+#: There are TWO of them, and the second is not a typo in the spec. Most v1 lists
+#: answer ``next_cursor`` and take ``after``; topics and validation results answer
+#: ``cursor`` and take ``cursor``. Both are forward-only opaque cursors and both are
+#: walkable, so this guard has to recognise both -- recognising only the first read
+#: the second as "not paginated" and then flagged its own iterator as stray, which
+#: is the guard being wrong about the shape rather than the SDK being wrong about
+#: the endpoint. The resources that speak the second shape drive the page loop
+#: themselves, because ``iterate_cursor`` sends ``after`` and reads ``next_cursor``.
+CURSOR_ENVELOPES = (
+    frozenset({"data", "has_more", "next_cursor"}),
+    frozenset({"data", "has_more", "cursor"}),
+)
 
 
 def _cursor_list_operations(spec: dict[str, Any]) -> set[tuple[str, str]]:
@@ -156,7 +168,7 @@ def _cursor_list_operations(spec: dict[str, Any]) -> set[tuple[str, str]]:
             for media in resolved.get("content", {}).values():
                 schema = _resolve_ref(spec, media.get("schema", {}))
                 properties = schema.get("properties", {}) if isinstance(schema, dict) else {}
-                if CURSOR_ENVELOPE.issubset(properties):
+                if any(envelope.issubset(properties) for envelope in CURSOR_ENVELOPES):
                     cursor_ops.add((verb, norm))
     return cursor_ops
 

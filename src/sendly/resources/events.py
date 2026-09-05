@@ -49,7 +49,9 @@ class EventsResource:
     def record(self, body: Body) -> EventRecord:
         """Record a custom event for a contact (``/api/v1``).
 
-        Requires ``name``; optionally takes ``contact_id`` and a ``data`` object.
+        Requires ``name``; optionally takes ``contact_id`` and a ``payload``
+        object. It was ``data`` before 1.1 -- on a wire where every legacy
+        envelope has a ``data``, the name said nothing about whose it was.
         The v1 counterpart of :meth:`track`, returning the created event body
         rather than a ``{success, data}`` envelope.
 

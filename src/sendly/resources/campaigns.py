@@ -14,8 +14,10 @@ if TYPE_CHECKING:
     from sendly.types import (
         Body,
         CampaignDeleted,
+        CampaignFailureListV1,
         CampaignList,
         CampaignRecord,
+        CampaignRetryFailedV1,
         CampaignStats,
         JSONDict,
         Query,
@@ -131,5 +133,46 @@ class CampaignsResource:
         """Delivery and engagement counters plus derived rates for one campaign."""
         response: CampaignStats = self._client.request(
             method="GET", path=f"/api/v1/campaigns/{encode_path_segment(id)}/stats"
+        )
+        return response
+
+    def list_failures(self, id: str, query: Query | None = None) -> CampaignFailureListV1:
+        """The recipients this campaign did not reach, and why.
+
+        :meth:`stats` says how many sends failed; only this says who. ``reason``
+        comes from a fixed vocabulary rather than the underlying error text, so
+        it is stable enough to branch on, and is ``None`` on rows recorded
+        before reasons were captured.
+
+        Cursor-paginated (``limit`` / ``after``) like every other v1 list, but
+        uniquely it also carries ``total``: :meth:`retry_failed` acts on that
+        number, and ``has_more`` alone cannot tell you whether 3 or 30,000 sends
+        failed.
+        """
+        response: CampaignFailureListV1 = self._client.request(
+            method="GET",
+            path=f"/api/v1/campaigns/{encode_path_segment(id)}/failures",
+            query=query,
+        )
+        return response
+
+    def iter_list_failures(self, id: str, query: Query | None = None) -> Iterator[JSONDict]:
+        """Iterate every failed send across pages, one recipient at a time."""
+        return iterate_cursor(lambda params: self.list_failures(id, params), query)
+
+    def retry_failed(self, id: str) -> CampaignRetryFailedV1:
+        """Re-drive only the recipients whose send failed.
+
+        Nobody who already received the campaign is mailed a second time: each
+        ledger row is claimed before it is touched, and a row whose email exists
+        already is re-queued rather than re-sent.
+
+        The walk runs in the background, so this returns as soon as it is
+        queued, reporting ``queued`` -- how many failed rows it was started for.
+        Only a ``SENT`` campaign qualifies (400 ``validation_error`` otherwise),
+        and a retry already running answers 409 ``conflict``. Takes no body.
+        """
+        response: CampaignRetryFailedV1 = self._client.request(
+            method="POST", path=f"/api/v1/campaigns/{encode_path_segment(id)}/retry-failed"
         )
         return response

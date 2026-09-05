@@ -11,13 +11,13 @@ if TYPE_CHECKING:
     from sendly.types import (
         BatchSendResponse,
         Body,
-        EmailGetResponse,
+        EmailDetailResponse,
         EmailListResponse,
+        EmailResponse,
         EmailTestV1,
         EmailV1,
         Query,
         SendEmailData,
-        SuccessEmpty,
     )
 
 
@@ -105,16 +105,28 @@ class EmailsResource:
         )
         return response
 
-    def get(self, id: str) -> EmailGetResponse:
-        """Fetch a single email and its delivery events."""
-        response: EmailGetResponse = self._client.request(
+    def get(self, id: str) -> EmailDetailResponse:
+        """Fetch a single email together with its DELIVERY history, oldest first.
+
+        ``events`` here is the delivery timeline behind ``status`` -- not the
+        custom events recorded with ``events.record``, which are read from
+        ``events.list``. Before 1.1 this operation answered the wrong relation
+        and published the message's dedup and idempotency ledger keys with it.
+        """
+        response: EmailDetailResponse = self._client.request(
             method="GET", path=f"/api/emails/{encode_path_segment(id)}"
         )
         return response
 
-    def cancel_schedule(self, id: str) -> SuccessEmpty:
-        """Cancel a scheduled (PENDING) email before it fires."""
-        response: SuccessEmpty = self._client.request(
+    def cancel_schedule(self, id: str) -> EmailResponse:
+        """Cancel a scheduled (PENDING) email before it fires.
+
+        Answers the email itself, not an empty acknowledgement: the contract has
+        always published that shape here, and the caller wants the row's new
+        status more than a success flag it already inferred from the absence of
+        an exception.
+        """
+        response: EmailResponse = self._client.request(
             method="DELETE", path=f"/api/emails/{encode_path_segment(id)}/schedule"
         )
         return response

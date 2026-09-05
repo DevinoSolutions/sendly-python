@@ -18,8 +18,10 @@ if TYPE_CHECKING:
         WorkflowDeleted,
         WorkflowExecutionList,
         WorkflowExecutionRecord,
+        WorkflowGraphV1,
         WorkflowList,
         WorkflowRecord,
+        WorkflowStateChangeV1,
         WorkflowStats,
     )
 
@@ -135,5 +137,97 @@ class WorkflowsResource:
             method="GET",
             path=f"/api/v1/workflows/{encode_path_segment(id)}/stats",
             query=query,
+        )
+        return response
+
+    def get_graph(self, id: str) -> WorkflowGraphV1:
+        """Every step in the workflow, its ``TRIGGER`` entry node included, plus
+        the directed transitions between them.
+
+        A step's ``config`` comes back exactly as stored, camelCase keys and
+        all, rather than projected into the snake_case used elsewhere on v1: the
+        same document is authored by the visual editor, and renaming its keys on
+        the way out would silently drop any key this API does not know on the
+        way back in.
+
+        ``version`` is the workflow's version at the time of the read, so a
+        different number on a later read means somebody edited the graph in
+        between. This body is accepted verbatim by :meth:`replace_graph` -- read
+        a graph, change one step, send it back.
+        """
+        response: WorkflowGraphV1 = self._client.request(
+            method="GET", path=f"/api/v1/workflows/{encode_path_segment(id)}/graph"
+        )
+        return response
+
+    def replace_graph(self, id: str, body: Body) -> WorkflowGraphV1:
+        """Replace the whole graph in one transaction.
+
+        A ``PUT`` and not a ``PATCH``, and that is the point: a graph is nodes
+        *plus* the edges between them, so a partial edit to a step list has no
+        meaning without the transitions that reference it -- half-applied, it
+        would leave steps pointing at steps that no longer exist.
+
+        Ids decide the outcome per step: one you send is kept and updated in
+        place, a fresh uuid creates a step, and an id you omit deletes that step
+        *and its run history*. Exactly one step must be a ``TRIGGER``, every
+        transition must name steps in the same document, and no step may point
+        at itself.
+
+        Refused with 409 ``conflict`` while the workflow has running executions
+        -- those runs are standing on the steps being replaced. :meth:`pause`
+        first.
+        """
+        response: WorkflowGraphV1 = self._client.request(
+            method="PUT",
+            path=f"/api/v1/workflows/{encode_path_segment(id)}/graph",
+            body=body,
+        )
+        return response
+
+    def clone(self, id: str, body: Body) -> WorkflowRecord:
+        """Copy a workflow and its whole graph as a new workflow.
+
+        The copy is always created disabled, whatever the original was: a clone
+        exists to be reviewed, and one that started live would match the same
+        trigger events as its original from the moment it appeared. Pass
+        ``{"name": ...}`` to name it; it otherwise becomes ``Copy of <original
+        name>``.
+        """
+        response: WorkflowRecord = self._client.request(
+            method="POST",
+            path=f"/api/v1/workflows/{encode_path_segment(id)}/clone",
+            body=body,
+        )
+        return response
+
+    def pause(self, id: str) -> WorkflowStateChangeV1:
+        """Disable the workflow *and cancel every* ``RUNNING``/``WAITING``
+        execution in it, returning ``{workflow, cancelled_executions}``.
+
+        That is what separates this from ``update(id, {"enabled": False})``,
+        which only stops new runs starting and leaves every in-flight contact
+        walking the graph -- the next delay still expires, the next email still
+        sends.
+
+        The cancellation is terminal: :meth:`resume` re-opens the workflow to
+        new runs, it does not put the cancelled contacts back where they were.
+        """
+        response: WorkflowStateChangeV1 = self._client.request(
+            method="POST", path=f"/api/v1/workflows/{encode_path_segment(id)}/pause"
+        )
+        return response
+
+    def resume(self, id: str) -> WorkflowStateChangeV1:
+        """Re-enable the workflow so its trigger matches again.
+
+        ``cancelled_executions`` is always 0 here -- resuming starts nothing and
+        stops nothing. Refused with 422 ``validation_error`` while any step is
+        still unconfigured, the same rule ``update(id, {"enabled": True})``
+        enforces: an enabled workflow accepts contacts immediately and would
+        otherwise fail only once one reached the broken step.
+        """
+        response: WorkflowStateChangeV1 = self._client.request(
+            method="POST", path=f"/api/v1/workflows/{encode_path_segment(id)}/resume"
         )
         return response

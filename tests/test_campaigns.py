@@ -260,3 +260,91 @@ def test_iter_list_surfaces_a_mid_walk_error_instead_of_swallowing_it():
     with pytest.raises(SendlyRateLimitError) as caught:
         next(iterator)
     assert caught.value.error_code == "rate_limited"
+
+
+FAILURE = {
+    "id": "fail_1",
+    "contact_id": "ct_1",
+    "email": "bounced@example.com",
+    "reason": "HARD_BOUNCE",
+    "failed_at": "2026-09-01T00:00:00.000Z",
+}
+
+
+def test_list_failures_returns_the_bare_body_including_the_total_only_this_list_carries():
+    body = {"data": [FAILURE], "has_more": False, "next_cursor": None, "total": 4211}
+    rec = Recorder(json_response(200, body))
+    client = make_client(rec)
+
+    page = client.campaigns.list_failures("cmp_1")
+
+    assert str(rec.request.url) == "http://localhost/api/v1/campaigns/cmp_1/failures"
+    assert rec.request.method == "GET"
+    # A v1 body arrives bare -- nothing unwrapped a {success, data} envelope,
+    # and `total` (unique to this list) survives.
+    assert page == body
+    assert page["total"] == 4211
+
+
+def test_list_failures_serializes_the_cursor_query():
+    rec = Recorder(
+        json_response(200, {"data": [], "has_more": False, "next_cursor": None, "total": 0})
+    )
+    client = make_client(rec)
+
+    client.campaigns.list_failures("cmp_1", {"limit": 50, "after": "fail_9"})
+
+    assert (
+        str(rec.request.url)
+        == "http://localhost/api/v1/campaigns/cmp_1/failures?limit=50&after=fail_9"
+    )
+
+
+def test_iter_list_failures_walks_two_pages_threads_the_cursor_and_stops():
+    rec = SequenceRecorder(
+        json_response(200, cursor_page([{"id": "fail_1"}], next_cursor="fail_1")),
+        json_response(200, cursor_page([{"id": "fail_2"}, {"id": "fail_3"}])),
+    )
+    client = make_client(rec)
+
+    ids = [row["id"] for row in client.campaigns.iter_list_failures("cmp_1")]
+
+    assert ids == ["fail_1", "fail_2", "fail_3"]
+    # Exactly two requests: a third would trip SequenceRecorder's assert.
+    assert rec.urls == [
+        "http://localhost/api/v1/campaigns/cmp_1/failures",
+        "http://localhost/api/v1/campaigns/cmp_1/failures?after=fail_1",
+    ]
+
+
+def test_retry_failed_posts_with_no_body_and_returns_the_queued_count():
+    rec = Recorder(json_response(200, {"id": "cmp_1", "queued": 12}))
+    client = make_client(rec)
+
+    ack = client.campaigns.retry_failed("cmp_1")
+
+    assert str(rec.request.url) == "http://localhost/api/v1/campaigns/cmp_1/retry-failed"
+    assert rec.request.method == "POST"
+    # The route takes no body -- sending one would be a contract change.
+    assert rec.request.content == b""
+    assert ack == {"id": "cmp_1", "queued": 12}
+
+
+def test_retry_failed_raises_conflict_when_a_retry_is_already_running():
+    rec = Recorder(
+        problem_response(
+            409,
+            {
+                "type": "https://docs.sendly.now/errors/conflict",
+                "title": "Conflict",
+                "status": 409,
+                "detail": "A retry is already running for this campaign.",
+                "code": "conflict",
+            },
+        )
+    )
+    client = make_client(rec)
+
+    with pytest.raises(SendlyConflictError) as caught:
+        client.campaigns.retry_failed("cmp_1")
+    assert caught.value.error_code == "conflict"
