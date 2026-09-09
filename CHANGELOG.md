@@ -10,10 +10,16 @@ set of renames the platform made on the wire. Most of this release is additive,
 but the renames are breaking, so it is a major-in-spirit minor: 1.1 talks to an
 API that 1.0 did not.
 
-> **Do not publish or deploy 1.1 before the platform deploy that ships the
-> renamed wire has gone out.** An SDK sending `emailCategory` at an API that
-> still expects `type` is answered `422 validation_error` on every template and
-> campaign write. The order is: platform deploy first, then publish the SDKs.
+> **The platform deploy this release waited on has shipped** — monorepo commit
+> `57826bad`, deployed 2026-09-06 — so 1.1 is releasable. Anyone still running
+> the pre-`57826bad` platform should stay on 1.0: an SDK sending `emailCategory`
+> at an API that still expects `type` is answered `422 validation_error` on every
+> template and campaign write.
+>
+> The vendored `tests/fixtures/openapi.json` is that released contract byte for
+> byte, taken from the monorepo at `57826bad` rather than synced from the
+> deployed API — see `scripts/sync_spec.py` for why production is never the
+> source.
 
 ### Breaking
 
@@ -93,6 +99,38 @@ API that 1.0 did not.
   because Sendly does not send the confirmation email — your application does —
   so a caller who builds it by hand must change the path. The `confirmToken` in
   the response is unchanged.
+
+- **`Domain.name` is now `Domain.domain`**, and the record no longer carries a
+  ready-made `dkim` list of `{type, name, value}` records. What SES actually
+  hands back is a list of tokens, so that is what is published: **`dkimTokens`**,
+  the strings to publish as CNAME records. The old shape implied Sendly knew the
+  full record set; it knew the tokens and was assembling the rest.
+
+- **`DomainVerificationStatus` reports one status per DNS record type.** `dkim`
+  and `mxRecords` are gone; `dkimStatus`, `spfStatus` and `dmarcStatus` take
+  their place, and `domain`, `status` and `mailFromDomain` are now required.
+  `status` is SES's own raw DKIM state (`Success`, `Pending`) and the three
+  `*Status` fields are this platform's DNS check — both are published because
+  they can disagree, and a single collapsed verdict hid which record was actually
+  failing.
+
+- **The legacy suppression list answers a bare body.** `GET /api/suppression`
+  returns `{"items", "nextCursor"}` with no `{"success", "data"}` envelope, where
+  it previously published `{"success", "data", "hasMore", "cursor"}`.
+  `suppression.list` hands the body back untouched, so read `page["items"]` and
+  `page["nextCursor"]`. `nextCursor` is `None` on the last page and is never
+  omitted.
+
+- **`webhooks.create` nests the endpoint beside the secret.** `data` is now
+  `{"webhook", "secret"}` rather than the webhook's fields spread alongside
+  `secret`. `created["data"]["secret"]` is unchanged; the endpoint's id moved to
+  `created["data"]["webhook"]["id"]`. Spreading a resource and a one-time
+  credential into one object made it impossible to hand the record onward without
+  carrying the secret with it.
+
+- **`Webhook.lastFour` is gone.** A webhook record now states that it never
+  carries a secret, and a four-character fragment of one is still a fragment of
+  one. Nothing identified an endpoint by it — `id` and `url` do that.
 
 ### Added
 
@@ -212,6 +250,40 @@ API that 1.0 did not.
   `lists.iter_list_v1`, `suppression.iter_list_v1`, `templates.iter_list_v1`,
   `topics.iter_list`, `validation.iter_list_results` and
   `webhooks.iter_list_v1`.
+
+- **`intake_configured` on the DMARC report list**, and it is the field that
+  makes an empty page readable. `deliverability.list_dmarc_reports` answering
+  `"data": []` used to mean either "no receiver has reported a failure" or "this
+  deployment has no report intake mailbox, so nothing can ever arrive", and the
+  two were indistinguishable. `"intake_configured": False` is the second one.
+  Read it before telling anyone the domains are clean.
+
+- **`Suppression.scope`** — `PROJECT` or `GLOBAL`. Every record this API creates
+  or returns today is `PROJECT`; `GLOBAL` is a platform-wide block recorded
+  outside your project, which is why `suppression.get_v1` can answer `200` for an
+  address you never suppressed yourself.
+
+- **`Template.currentVersion`** — a counter incremented by an update that changes
+  the rendered content, and left alone by one that only renames. A campaign
+  records the version it sent, so this is how a caller tells "the template changed
+  since" from "the template was retitled".
+
+- **`Webhook.domains`** — the sending domains an endpoint is scoped to, empty
+  meaning every domain on the project. It was already enforced; it is now
+  readable, so a caller can see why an endpoint is quiet.
+
+- **`Webhook.previousSecretExpiresAt`** on the record itself, not only on the
+  rotation response. While a rotation is in flight it says when the OLD secret
+  stops being accepted, and it is `None` outside one — so a verifier can tell
+  from a plain read whether it is inside a dual-signature window.
+
+- **Every `{id}` path parameter declares `format: uuid`,** and the seven
+  operations that had no `404` published now publish one:
+  `GET /api/v1/contacts/{id}/topics`, `POST /api/v1/lists/{id}/validation-runs`,
+  `GET` and `PATCH /api/v1/topics/{id}`,
+  `POST /api/v1/topics/{id}/subscriptions`, `GET /api/v1/validation-runs/{id}`
+  and its `/results`. All seven answered `404 resource_not_found` already; the
+  contract now says so, which is what the error-handling examples are read from.
 
 ### Fixed
 

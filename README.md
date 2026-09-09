@@ -372,14 +372,29 @@ New integrations should prefer `record`, which also unlocks `events.list`,
 ### Domains
 
 ```python
-sendly.domains.create({"domain": "mail.yourdomain.com", "region": "us-east-1"})
+domain = sendly.domains.create({"domain": "mail.yourdomain.com", "region": "us-east-1"})
+# Publish each token as a CNAME record before verification can succeed.
+print(domain["dkimTokens"])
+
 sendly.domains.list()
 sendly.domains.get("d_123")
 sendly.domains.verify("d_123")
-sendly.domains.get_verification("d_123")
+
+status = sendly.domains.get_verification("d_123")
+# One status per record type, not one verdict for the domain.
+print(status["dkimStatus"], status["spfStatus"], status["dmarcStatus"])
+
 sendly.domains.start_setup("d_123")  # -> {"token", "connectUrl", "expiresAt"}
 sendly.domains.delete("d_123")
 ```
+
+A domain reports each DNS record type separately — `dkimStatus`, `spfStatus` and
+`dmarcStatus` are each `NOT_CHECKED`, `PENDING`, `VERIFIED` or `FAILED`, and
+`lastHealthCheckAt` says when they were last filled. `status` on the verification
+response is a different thing: SES's own raw DKIM state (`Success`, `Pending`),
+which is why both are published rather than collapsed into one.
+`receivingEnabled` says whether inbound mail for the domain is routed to Sendly
+mailboxes.
 
 `start_setup` returns the hand-off as the API returns it. Open `connectUrl` in a
 browser to finish DNS setup at the registrar.
@@ -508,8 +523,14 @@ sendly.templates.delete("t_123")
 `emailCategory` — `type` before 1.1 — is `MARKETING`, `TRANSACTIONAL` or
 `SELF_MANAGED_UNSUBSCRIBE` (the member that used to be called `HEADLESS`). It
 defaults to `MARKETING`, and it is also the legacy list filter:
-`templates.list({"emailCategory": "MARKETING"})`. On the `_v1` methods the same
-field is `email_category`:
+`templates.list({"emailCategory": "MARKETING"})`.
+
+A template carries `currentVersion`, a counter an update increments only when it
+changes the **rendered content** — a rename leaves it alone. A campaign records
+the version it sent, so comparing the two is how you tell "the template changed
+since this went out" from "somebody retitled it".
+
+On the `_v1` methods the same field is `email_category`:
 
 ```python
 template = sendly.templates.create_v1({"name": "Welcome", "subject": "Welcome",
@@ -637,9 +658,20 @@ typically once a day.
 
 ```python
 reports = sendly.deliverability.list_dmarc_reports({"limit": 20})
+
+# Which kind of empty is this? False means no intake mailbox exists, so no
+# report can ever arrive — the feature is off, your domains are not "clean".
+if not reports["intake_configured"]:
+    print("DMARC report intake is not configured on this deployment")
+
 for report in reports["data"]:
     print(report["org_name"], report["policy_domain"], report["pass_count"], report["fail_count"])
 ```
+
+`intake_configured` exists because the two empty lists are otherwise
+indistinguishable, and reporting "no DMARC failures" off a feature that was never
+switched on is the worse of the two mistakes. Read the flag before you tell
+anyone the domains are healthy.
 
 `pass_count` counts DMARC **alignment** taken from `policy_evaluated`, not raw
 authentication results — a message can pass SPF for a domain that is not the one
@@ -651,6 +683,8 @@ in its From header, which is exactly the case DMARC exists to catch.
 created = sendly.webhooks.create({"url": "https://you.com/hook", "eventTypes": ["email.delivered"]})
 # Store the signing secret now — it is only returned in full at creation/rotation.
 print(created["data"]["secret"])
+# The endpoint sits beside it rather than spread around it.
+print(created["data"]["webhook"]["id"])
 
 sendly.webhooks.list()
 sendly.webhooks.get("w_123")
@@ -681,14 +715,28 @@ dropping an event. On `update_v1`, `event_types` **replaces** the stored
 subscription list rather than merging into it, so an event you omit is
 unsubscribed.
 
+A webhook record carries `domains` — the sending domains this endpoint is scoped
+to, where an empty list means every domain on the project — and, while a rotation
+is in flight, `previousSecretExpiresAt`. A record never carries a secret or any
+fragment of one.
+
 ### Suppression
 
 ```python
 sendly.suppression.add({"email": "bounce@example.com", "reason": "MANUAL"})
-sendly.suppression.list({"reason": "MANUAL", "limit": 100})
+
+# Alone among the legacy reads, this one answers no {"success", "data"}
+# envelope — the page IS the body.
+page = sendly.suppression.list({"reason": "MANUAL", "limit": 100})
+for record in page["items"]:
+    print(record["email"], record["reason"], record["scope"])
+
 sendly.suppression.get("bounce@example.com")   # -> {"suppressed": False} when it is not
 sendly.suppression.remove("bounce@example.com")
 ```
+
+`scope` is `PROJECT` on every record this API creates or returns today; `GLOBAL`
+is reserved for a platform-wide block recorded outside your project.
 
 The `_v1` half addresses a record by the **address itself** and answers
 definitively either way — 200 means suppressed and says why, 404
