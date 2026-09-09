@@ -47,7 +47,7 @@ def test_start_setup_posts_the_session_route_and_returns_the_link_verbatim():
 
 def test_create_posts_domains_and_unwraps():
     rec = Recorder(
-        json_response(201, {"success": True, "data": {"id": "d_1", "name": "mail.example.com"}})
+        json_response(201, {"success": True, "data": {"id": "d_1", "domain": "mail.example.com"}})
     )
     client = make_client(rec)
     result = client.domains.create({"domain": "mail.example.com"})
@@ -64,19 +64,55 @@ def test_list_gets_domains():
 
 
 def test_verify_posts_verify_path():
-    rec = Recorder(json_response(200, {"success": True, "data": {"status": "PENDING"}}))
+    # `status` is SES's own raw DKIM state; the per-record checks are their own fields.
+    rec = Recorder(
+        json_response(
+            200,
+            {
+                "success": True,
+                "data": {
+                    "domain": "mail.example.com",
+                    "status": "Pending",
+                    "verified": False,
+                    "dkimStatus": "PENDING",
+                    "spfStatus": "NOT_CHECKED",
+                    "dmarcStatus": "NOT_CHECKED",
+                    "mailFromDomain": None,
+                },
+            },
+        )
+    )
     client = make_client(rec)
     client.domains.verify("d_1")
     assert str(rec.request.url) == "http://localhost/api/domains/d_1/verify"
     assert rec.request.method == "POST"
 
 
-def test_get_verification_gets_verify_path():
-    rec = Recorder(json_response(200, {"success": True, "data": {"status": "VERIFIED"}}))
+def test_get_verification_reports_each_record_type():
+    rec = Recorder(
+        json_response(
+            200,
+            {
+                "success": True,
+                "data": {
+                    "domain": "mail.example.com",
+                    "status": "Success",
+                    "verified": True,
+                    "dkimStatus": "VERIFIED",
+                    "spfStatus": "VERIFIED",
+                    "dmarcStatus": "NOT_CHECKED",
+                    "mailFromDomain": "bounce.mail.example.com",
+                },
+            },
+        )
+    )
     client = make_client(rec)
-    client.domains.get_verification("d_1")
+    status = client.domains.get_verification("d_1")
     assert str(rec.request.url) == "http://localhost/api/domains/d_1/verify"
     assert rec.request.method == "GET"
+    # DMARC unchecked while DKIM and SPF pass -- one status per record type, not one verdict.
+    assert status["dkimStatus"] == "VERIFIED"
+    assert status["dmarcStatus"] == "NOT_CHECKED"
 
 
 def test_create_raises_permission_error_on_403():
@@ -91,7 +127,12 @@ def test_create_raises_permission_error_on_403():
 
 
 def test_assign_stream_patches_the_legacy_path_with_the_camel_case_body():
-    record = {"id": "d_1", "name": "mail.example.com", "stream": "MARKETING", "streamDefault": True}
+    record = {
+        "id": "d_1",
+        "domain": "mail.example.com",
+        "stream": "MARKETING",
+        "streamDefault": True,
+    }
     rec = Recorder(json_response(200, {"success": True, "data": record}))
     client = make_client(rec)
 

@@ -34,13 +34,17 @@ def test_add_posts_suppression():
     assert str(rec.request.url) == "http://localhost/api/suppression"
 
 
-def test_list_serializes_reason_filter():
-    rec = Recorder(json_response(200, {"success": True, "data": {"items": []}}))
+def test_list_serializes_reason_filter_and_hands_back_the_bare_body():
+    # Alone among the legacy reads, this route answers no {success, data}
+    # envelope -- the page IS the body, so there is nothing to unwrap.
+    rec = Recorder(json_response(200, {"items": [], "nextCursor": None}))
     client = make_client(rec)
-    client.suppression.list({"reason": "MANUAL", "limit": 100})
+    page = client.suppression.list({"reason": "MANUAL", "limit": 100})
     url = str(rec.request.url)
     assert "reason=MANUAL" in url
     assert "limit=100" in url
+    assert page["items"] == []
+    assert page["nextCursor"] is None
 
 
 def test_get_percent_encodes_email_path_segment():
