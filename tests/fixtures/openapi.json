@@ -2049,6 +2049,10 @@
           "has_more": {
             "type": "boolean"
           },
+          "intake_configured": {
+            "description": "Whether this deployment has a DMARC report intake mailbox configured. When `false` no report can ever arrive, so an empty `data` means the feature is off rather than that your domains are clean — the two are otherwise indistinguishable.",
+            "type": "boolean"
+          },
           "next_cursor": {
             "description": "Pass as `after` to fetch the next page. `null` on the last page.",
             "type": [
@@ -2060,7 +2064,8 @@
         "required": [
           "data",
           "has_more",
-          "next_cursor"
+          "next_cursor",
+          "intake_configured"
         ],
         "type": "object"
       },
@@ -2079,31 +2084,59 @@
               "null"
             ]
           },
-          "dkim": {
+          "dkimStatus": {
+            "description": "Result of the last DNS check for this record type.",
+            "enum": [
+              "NOT_CHECKED",
+              "PENDING",
+              "VERIFIED",
+              "FAILED",
+              null
+            ],
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "dkimTokens": {
+            "description": "SES DKIM tokens to publish as CNAME records before the domain can verify.",
             "items": {
-              "properties": {
-                "name": {
-                  "type": "string"
-                },
-                "type": {
-                  "type": "string"
-                },
-                "value": {
-                  "type": "string"
-                }
-              },
-              "required": [
-                "type",
-                "name",
-                "value"
-              ],
-              "type": "object"
+              "type": "string"
             },
-            "type": "array"
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "dmarcStatus": {
+            "description": "Result of the last DNS check for this record type.",
+            "enum": [
+              "NOT_CHECKED",
+              "PENDING",
+              "VERIFIED",
+              "FAILED",
+              null
+            ],
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "domain": {
+            "description": "The bare domain, e.g. `mail.acme.com`.",
+            "type": "string"
           },
           "id": {
             "format": "uuid",
             "type": "string"
+          },
+          "lastHealthCheckAt": {
+            "description": "ISO 8601 datetime string",
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "mailFromDomain": {
             "description": "Custom MAIL FROM subdomain SES has on record (normally `sendly.<domain>`).",
@@ -2127,14 +2160,29 @@
               "null"
             ]
           },
-          "name": {
-            "type": "string"
-          },
           "projectId": {
             "format": "uuid",
             "type": "string"
           },
+          "receivingEnabled": {
+            "description": "Whether inbound mail for this domain is routed to Sendly mailboxes.",
+            "type": "boolean"
+          },
           "region": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "spfStatus": {
+            "description": "Result of the last DNS check for this record type.",
+            "enum": [
+              "NOT_CHECKED",
+              "PENDING",
+              "VERIFIED",
+              "FAILED",
+              null
+            ],
             "type": [
               "string",
               "null"
@@ -2168,8 +2216,9 @@
         "required": [
           "id",
           "projectId",
-          "name",
+          "domain",
           "verified",
+          "receivingEnabled",
           "createdAt",
           "updatedAt"
         ],
@@ -2367,27 +2416,24 @@
       "DomainVerificationStatus": {
         "description": "Outcome of a verification check against SES.",
         "properties": {
-          "dkim": {
-            "items": {
-              "properties": {
-                "name": {
-                  "type": "string"
-                },
-                "type": {
-                  "type": "string"
-                },
-                "value": {
-                  "type": "string"
-                }
-              },
-              "required": [
-                "type",
-                "name",
-                "value"
-              ],
-              "type": "object"
-            },
-            "type": "array"
+          "dkimStatus": {
+            "enum": [
+              "VERIFIED",
+              "PENDING",
+              "FAILED"
+            ],
+            "type": "string"
+          },
+          "dmarcStatus": {
+            "enum": [
+              "VERIFIED",
+              "FAILED",
+              "NOT_CHECKED"
+            ],
+            "type": "string"
+          },
+          "domain": {
+            "type": "string"
           },
           "mailFromDomain": {
             "type": [
@@ -2410,7 +2456,20 @@
               "null"
             ]
           },
-          "mxRecords": {
+          "spfStatus": {
+            "enum": [
+              "VERIFIED",
+              "FAILED",
+              "NOT_CHECKED"
+            ],
+            "type": "string"
+          },
+          "status": {
+            "description": "Raw SES DKIM verification status, e.g. `Success` or `Pending`.",
+            "type": "string"
+          },
+          "tokens": {
+            "description": "DKIM tokens SES still has to report. Absent once verification has resolved.",
             "items": {
               "type": "string"
             },
@@ -2421,7 +2480,13 @@
           }
         },
         "required": [
-          "verified"
+          "domain",
+          "status",
+          "verified",
+          "dkimStatus",
+          "spfStatus",
+          "dmarcStatus",
+          "mailFromDomain"
         ],
         "type": "object"
       },
@@ -4898,6 +4963,14 @@
             ],
             "type": "string"
           },
+          "scope": {
+            "description": "How far the suppression reaches. `PROJECT` is every record this API creates or returns today.",
+            "enum": [
+              "PROJECT",
+              "GLOBAL"
+            ],
+            "type": "string"
+          },
           "source": {
             "enum": [
               "SES_WEBHOOK",
@@ -4913,6 +4986,7 @@
           "email",
           "reason",
           "source",
+          "scope",
           "createdAt"
         ],
         "type": "object"
@@ -4952,39 +5026,25 @@
         "type": "object"
       },
       "SuppressionListResponse": {
-        "description": "Cursor-paginated list of suppressions.",
+        "description": "Cursor-paginated list of suppressions. NOTE: this route answers a bare body — there is no `{success, data}` envelope.",
         "properties": {
-          "cursor": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "data": {
+          "items": {
             "items": {
               "$ref": "#/components/schemas/Suppression"
             },
             "type": "array"
           },
-          "hasMore": {
-            "type": "boolean"
-          },
           "nextCursor": {
+            "description": "Cursor for the next page, or `null` on the last page. Never omitted.",
             "type": [
               "string",
               "null"
             ]
-          },
-          "success": {
-            "enum": [
-              true
-            ],
-            "type": "boolean"
           }
         },
         "required": [
-          "success",
-          "data"
+          "items",
+          "nextCursor"
         ],
         "type": "object"
       },
@@ -5099,6 +5159,10 @@
             "format": "date-time",
             "type": "string"
           },
+          "currentVersion": {
+            "description": "Version counter, incremented by an update that changes the rendered content. A campaign records the version it sent, so this is how a caller tells 'the template changed since' from 'the template was renamed'.",
+            "type": "integer"
+          },
           "description": {
             "type": [
               "string",
@@ -5158,6 +5222,7 @@
           "body",
           "from",
           "emailCategory",
+          "currentVersion",
           "createdAt",
           "updatedAt"
         ],
@@ -6022,7 +6087,7 @@
         "type": "object"
       },
       "Webhook": {
-        "description": "A user-managed outbound webhook.",
+        "description": "A user-managed outbound webhook. Never carries a secret.",
         "properties": {
           "consecutiveFailures": {
             "type": "integer"
@@ -6039,6 +6104,13 @@
               "string",
               "null"
             ]
+          },
+          "domains": {
+            "description": "Sending domains this endpoint is scoped to. Empty means every domain on the project.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
           },
           "eventTypes": {
             "items": {
@@ -6062,8 +6134,13 @@
             "format": "uuid",
             "type": "string"
           },
-          "lastFour": {
-            "type": "string"
+          "previousSecretExpiresAt": {
+            "description": "While a rotation is in flight, when the OLD secret stops being accepted. `null` outside a rotation.",
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "projectId": {
             "format": "uuid",
@@ -6093,6 +6170,7 @@
           "url",
           "eventTypes",
           "status",
+          "domains",
           "consecutiveFailures",
           "createdAt",
           "updatedAt"
@@ -6198,24 +6276,20 @@
         "description": "Result of POST /api/webhooks. `secret` is the only time the plaintext is returned — store it securely.",
         "properties": {
           "data": {
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/Webhook"
+            "properties": {
+              "secret": {
+                "description": "Plaintext shared secret. Returned ONCE on create.",
+                "type": "string"
               },
-              {
-                "properties": {
-                  "secret": {
-                    "description": "Plaintext shared secret. Returned ONCE on create.",
-                    "type": "string"
-                  }
-                },
-                "required": [
-                  "secret"
-                ],
-                "type": "object"
+              "webhook": {
+                "$ref": "#/components/schemas/Webhook"
               }
+            },
+            "required": [
+              "webhook",
+              "secret"
             ],
-            "description": "A user-managed outbound webhook."
+            "type": "object"
           },
           "success": {
             "enum": [
@@ -16975,12 +17049,13 @@
         "operationId": "v1GetContactTopicPreferences",
         "parameters": [
           {
-            "description": "The contact.",
+            "description": "Resource id.",
             "in": "path",
             "name": "id",
             "required": true,
             "schema": {
-              "description": "The contact.",
+              "description": "Resource id.",
+              "format": "uuid",
               "type": "string"
             }
           }
@@ -17015,6 +17090,16 @@
               }
             },
             "description": "`scope_missing`, `project_access_denied`, or `project_disabled`."
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "`resource_not_found` — no contact with this id belongs to the authenticated project."
           },
           "422": {
             "content": {
@@ -19319,12 +19404,13 @@
         "operationId": "v1StartListValidationRun",
         "parameters": [
           {
-            "description": "The list to validate.",
+            "description": "Resource id.",
             "in": "path",
             "name": "id",
             "required": true,
             "schema": {
-              "description": "The list to validate.",
+              "description": "Resource id.",
+              "format": "uuid",
               "type": "string"
             }
           }
@@ -19359,6 +19445,16 @@
               }
             },
             "description": "`scope_missing`, `project_access_denied`, or `project_disabled`."
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "`resource_not_found` — no list with this id belongs to the authenticated project."
           },
           "422": {
             "content": {
@@ -21394,12 +21490,13 @@
         "operationId": "v1GetTopic",
         "parameters": [
           {
-            "description": "The topic.",
+            "description": "Resource id.",
             "in": "path",
             "name": "id",
             "required": true,
             "schema": {
-              "description": "The topic.",
+              "description": "Resource id.",
+              "format": "uuid",
               "type": "string"
             }
           }
@@ -21434,6 +21531,16 @@
               }
             },
             "description": "`scope_missing`, `project_access_denied`, or `project_disabled`."
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "`resource_not_found` — no topic with this id belongs to the authenticated project."
           },
           "422": {
             "content": {
@@ -21489,12 +21596,13 @@
         "operationId": "v1UpdateTopic",
         "parameters": [
           {
-            "description": "The topic.",
+            "description": "Resource id.",
             "in": "path",
             "name": "id",
             "required": true,
             "schema": {
-              "description": "The topic.",
+              "description": "Resource id.",
+              "format": "uuid",
               "type": "string"
             }
           }
@@ -21539,6 +21647,16 @@
               }
             },
             "description": "`scope_missing`, `project_access_denied`, or `project_disabled`."
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "`resource_not_found` — no topic with this id belongs to the authenticated project."
           },
           "422": {
             "content": {
@@ -21596,12 +21714,13 @@
         "operationId": "v1SetTopicSubscription",
         "parameters": [
           {
-            "description": "The topic.",
+            "description": "Resource id.",
             "in": "path",
             "name": "id",
             "required": true,
             "schema": {
-              "description": "The topic.",
+              "description": "Resource id.",
+              "format": "uuid",
               "type": "string"
             }
           }
@@ -21646,6 +21765,16 @@
               }
             },
             "description": "`scope_missing`, `project_access_denied`, or `project_disabled`."
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "`resource_not_found` — no topic with this id belongs to the authenticated project."
           },
           "422": {
             "content": {
@@ -21788,12 +21917,13 @@
         "operationId": "v1GetValidationRun",
         "parameters": [
           {
-            "description": "The validation run.",
+            "description": "Resource id.",
             "in": "path",
             "name": "id",
             "required": true,
             "schema": {
-              "description": "The validation run.",
+              "description": "Resource id.",
+              "format": "uuid",
               "type": "string"
             }
           }
@@ -21828,6 +21958,16 @@
               }
             },
             "description": "`scope_missing`, `project_access_denied`, or `project_disabled`."
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "`resource_not_found` — no validation run with this id belongs to the authenticated project."
           },
           "422": {
             "content": {
@@ -21885,12 +22025,13 @@
         "operationId": "v1ListValidationRunResults",
         "parameters": [
           {
-            "description": "The validation run.",
+            "description": "Resource id.",
             "in": "path",
             "name": "id",
             "required": true,
             "schema": {
-              "description": "The validation run.",
+              "description": "Resource id.",
+              "format": "uuid",
               "type": "string"
             }
           },
@@ -21963,6 +22104,16 @@
               }
             },
             "description": "`scope_missing`, `project_access_denied`, or `project_disabled`."
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "`resource_not_found` — no validation run with this id belongs to the authenticated project."
           },
           "422": {
             "content": {
@@ -23020,7 +23171,7 @@
                 }
               }
             },
-            "description": "`resource_not_found` — no workflow with this id in the authenticated project."
+            "description": "`resource_not_found` — no workflow with this id belongs to the authenticated project."
           },
           "409": {
             "content": {
@@ -23136,7 +23287,7 @@
                 }
               }
             },
-            "description": "`resource_not_found` — no workflow with this id in the authenticated project."
+            "description": "`resource_not_found` — no workflow with this id belongs to the authenticated project."
           },
           "422": {
             "content": {
@@ -23252,7 +23403,7 @@
                 }
               }
             },
-            "description": "`resource_not_found` — no workflow with this id in the authenticated project."
+            "description": "`resource_not_found` — no workflow with this id belongs to the authenticated project."
           },
           "409": {
             "content": {
@@ -23380,7 +23531,7 @@
                 }
               }
             },
-            "description": "`resource_not_found` — no workflow with this id in the authenticated project."
+            "description": "`resource_not_found` — no workflow with this id belongs to the authenticated project."
           },
           "422": {
             "content": {
@@ -23528,7 +23679,7 @@
                 }
               }
             },
-            "description": "`resource_not_found` — no workflow with this id in the authenticated project."
+            "description": "`resource_not_found` — no workflow with this id belongs to the authenticated project."
           },
           "422": {
             "content": {
@@ -23762,7 +23913,7 @@
                 }
               }
             },
-            "description": "`resource_not_found` — no workflow with this id in the authenticated project."
+            "description": "`resource_not_found` — no workflow with this id belongs to the authenticated project."
           },
           "422": {
             "content": {
@@ -23878,7 +24029,7 @@
                 }
               }
             },
-            "description": "`resource_not_found` — no workflow with this id in the authenticated project."
+            "description": "`resource_not_found` — no workflow with this id belongs to the authenticated project."
           },
           "409": {
             "content": {
@@ -23996,7 +24147,7 @@
                 }
               }
             },
-            "description": "`resource_not_found` — no workflow with this id in the authenticated project."
+            "description": "`resource_not_found` — no workflow with this id belongs to the authenticated project."
           },
           "422": {
             "content": {
@@ -24104,7 +24255,7 @@
                 }
               }
             },
-            "description": "`resource_not_found` — no workflow with this id in the authenticated project."
+            "description": "`resource_not_found` — no workflow with this id belongs to the authenticated project."
           },
           "422": {
             "content": {
@@ -24226,7 +24377,7 @@
                 }
               }
             },
-            "description": "`resource_not_found` — no workflow with this id in the authenticated project."
+            "description": "`resource_not_found` — no workflow with this id belongs to the authenticated project."
           },
           "422": {
             "content": {
