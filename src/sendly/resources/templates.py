@@ -59,7 +59,13 @@ class TemplatesResource:
         return record
 
     def update(self, id: str, body: Body) -> TemplateRecord:
-        """Patch an existing template."""
+        """Patch an existing template.
+
+        An update that changes the rendered content increments
+        ``currentVersion``; one that only renames leaves it alone. A campaign
+        records the version it sent, so comparing the two is how a caller tells
+        "the template changed since" from "the template was renamed".
+        """
         envelope = self._client.request(
             method="PATCH", path=f"/api/templates/{encode_path_segment(id)}", body=body
         )

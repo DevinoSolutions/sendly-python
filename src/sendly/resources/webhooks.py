@@ -48,6 +48,11 @@ class WebhooksResource:
 
         The response includes the signing secret — store it now, it is only
         returned in full at creation and rotation time.
+
+        ``data`` holds the two separately: ``data["webhook"]`` is the endpoint
+        and ``data["secret"]`` is the plaintext. The endpoint's own fields are
+        NOT spread alongside the secret, so the id is
+        ``data["webhook"]["id"]``.
         """
         response: WebhookCreateResponse = self._client.request(
             method="POST", path="/api/webhooks", body=body

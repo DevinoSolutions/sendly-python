@@ -44,7 +44,13 @@ class SuppressionResource:
         return record
 
     def list(self, query: Query | None = None) -> SuppressionListResponse:
-        """List suppressions with optional reason filter + cursor pagination."""
+        """List suppressions with optional reason filter + cursor pagination.
+
+        Alone among the legacy reads, this route answers no ``{success, data}``
+        envelope: the page IS the body, ``{items, nextCursor}``, so nothing is
+        unwrapped. Each record carries ``scope`` -- ``PROJECT`` for every record
+        this API creates or returns today.
+        """
         response: SuppressionListResponse = self._client.request(
             method="GET", path="/api/suppression", query=query
         )

@@ -44,7 +44,12 @@ class DomainsResource:
 
         Pass ``region`` to pin this domain to a specific AWS SES region. On the
         first domain for a project this also locks the project's region;
-        subsequent calls must match. The response includes DNS records to set.
+        subsequent calls must match.
+
+        The response carries ``dkimTokens`` -- the SES DKIM tokens to publish as
+        CNAME records before the domain can verify -- alongside ``dkimStatus``,
+        ``spfStatus`` and ``dmarcStatus``, each the result of the last DNS check
+        for that record type.
         """
         envelope = self._client.request(method="POST", path="/api/domains", body=body)
         record: DomainRecord = self._client.unwrap(envelope)
@@ -64,7 +69,14 @@ class DomainsResource:
         return record
 
     def verify(self, id: str) -> DomainVerificationStatus:
-        """Trigger SES verification for a domain."""
+        """Trigger SES verification for a domain.
+
+        ``status`` is SES's own raw DKIM verification state (``Success``,
+        ``Pending``), while ``dkimStatus``, ``spfStatus`` and ``dmarcStatus``
+        are this platform's own DNS check per record type. ``tokens`` carries
+        the DKIM tokens SES has still to report and is absent once verification
+        has resolved.
+        """
         envelope = self._client.request(
             method="POST", path=f"/api/domains/{encode_path_segment(id)}/verify"
         )

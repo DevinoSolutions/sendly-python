@@ -87,6 +87,13 @@ class DeliverabilityResource:
         receive: only reports about a registered domain are stored, and receivers
         send them on their own schedule (typically once a day).
 
+        ``intake_configured`` says which kind of empty you are looking at. When
+        it is ``False`` this deployment has no DMARC report intake mailbox at
+        all, so no report can ever arrive and an empty ``data`` means the
+        feature is off -- not that your domains are clean. The two are otherwise
+        indistinguishable, so read the flag before reporting "no DMARC failures"
+        to anyone.
+
         ``pass_count`` counts DMARC ALIGNMENT taken from ``policy_evaluated``,
         not raw authentication results -- a message can pass SPF for a domain
         that is not the one in its From header, which is exactly the case DMARC
