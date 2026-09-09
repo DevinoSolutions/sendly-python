@@ -6,7 +6,7 @@ import json
 
 import pytest
 
-from sendly import SendlyNotFoundError
+from sendly import SendlyConflictError, SendlyNotFoundError
 from support import (
     Recorder,
     SequenceRecorder,
@@ -157,3 +157,111 @@ def test_iter_list_executions_keeps_the_workflow_id_and_filter_across_pages():
         "http://localhost/api/v1/workflows/wf_1/executions?status=RUNNING",
         "http://localhost/api/v1/workflows/wf_1/executions?status=RUNNING&after=cur_2",
     ]
+
+
+TRIGGER_STEP = {
+    "id": "st_1",
+    "name": "Signed up",
+    "position": {"x": 0, "y": 0},
+    "type": "TRIGGER",
+    "config": {"eventName": "signup"},
+}
+
+GRAPH = {
+    "workflow_id": "wf_1",
+    "version": 7,
+    "steps": [{**TRIGGER_STEP, "template_id": None}],
+    "transitions": [],
+}
+
+
+def test_get_graph_reads_the_graph_subpath_and_returns_the_bare_body():
+    rec = Recorder(json_response(200, GRAPH))
+    client = make_client(rec)
+
+    graph = client.workflows.get_graph("wf_1")
+
+    assert str(rec.request.url) == "http://localhost/api/v1/workflows/wf_1/graph"
+    assert rec.request.method == "GET"
+    # A v1 body arrives bare: `version` sits at the top level, not under `data`.
+    assert graph == GRAPH
+    assert graph["version"] == 7
+
+
+def test_replace_graph_issues_a_put_not_a_patch_and_sends_the_whole_document():
+    rec = Recorder(json_response(200, {**GRAPH, "version": 8}))
+    client = make_client(rec)
+
+    body = {"steps": [TRIGGER_STEP], "transitions": []}
+    graph = client.workflows.replace_graph("wf_1", body)
+
+    assert str(rec.request.url) == "http://localhost/api/v1/workflows/wf_1/graph"
+    assert rec.request.method == "PUT"
+    assert rec.request.method != "PATCH"
+    assert json.loads(rec.request.content) == body
+    assert graph["version"] == 8
+
+
+def test_replace_graph_raises_conflict_while_executions_are_running():
+    rec = Recorder(
+        problem_response(
+            409,
+            {
+                "type": "https://docs.sendly.now/errors/conflict",
+                "title": "Conflict",
+                "status": 409,
+                "detail": "Workflow has running executions.",
+                "code": "conflict",
+            },
+        )
+    )
+    client = make_client(rec)
+
+    with pytest.raises(SendlyConflictError) as caught:
+        client.workflows.replace_graph("wf_1", {"steps": [TRIGGER_STEP], "transitions": []})
+    assert caught.value.error_code == "conflict"
+
+
+def test_clone_posts_the_name_and_returns_a_copy_that_is_always_disabled():
+    rec = Recorder(json_response(201, {"id": "wf_2", "name": "Onboarding v2", "enabled": False}))
+    client = make_client(rec)
+
+    copy = client.workflows.clone("wf_1", {"name": "Onboarding v2"})
+
+    assert str(rec.request.url) == "http://localhost/api/v1/workflows/wf_1/clone"
+    assert rec.request.method == "POST"
+    assert json.loads(rec.request.content) == {"name": "Onboarding v2"}
+    assert copy["id"] == "wf_2"
+    assert copy["enabled"] is False
+
+
+def test_pause_reports_the_runs_it_cancelled():
+    rec = Recorder(json_response(200, {"workflow": {"id": "wf_1"}, "cancelled_executions": 23}))
+    client = make_client(rec)
+
+    paused = client.workflows.pause("wf_1")
+
+    assert str(rec.request.url) == "http://localhost/api/v1/workflows/wf_1/pause"
+    assert rec.request.method == "POST"
+    # This count is what makes pause different from update({"enabled": False}).
+    assert paused["cancelled_executions"] == 23
+
+
+def test_resume_reports_zero_cancellations():
+    rec = Recorder(json_response(200, {"workflow": {"id": "wf_1"}, "cancelled_executions": 0}))
+    client = make_client(rec)
+
+    resumed = client.workflows.resume("wf_1")
+
+    assert str(rec.request.url) == "http://localhost/api/v1/workflows/wf_1/resume"
+    assert rec.request.method == "POST"
+    assert resumed["cancelled_executions"] == 0
+
+
+def test_graph_routes_percent_encode_the_workflow_id():
+    rec = Recorder(json_response(200, GRAPH))
+    client = make_client(rec)
+
+    client.workflows.get_graph("wf/../evil")
+
+    assert str(rec.request.url) == "http://localhost/api/v1/workflows/wf%2F..%2Fevil/graph"

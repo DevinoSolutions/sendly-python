@@ -134,9 +134,17 @@ def _resolve_ref(spec: dict[str, Any], node: Any) -> Any:
     return node
 
 
-#: Members that identify the ``/api/v1`` cursor-list envelope. No ``total`` --
+#: Members that identify a ``/api/v1`` cursor-list envelope. No ``total`` --
 #: the API deliberately does not count a project's rows on every page.
-CURSOR_ENVELOPE = frozenset({"data", "has_more", "next_cursor"})
+#:
+#: ONE of them, as of the 1.1 contract. There were two through 1.0: topics and
+#: validation results answered ``cursor`` and took ``cursor``, so the shared
+#: walker sent a parameter they ignored and read a field they never returned, and
+#: this guard had to recognise the second shape or it read those endpoints as "not
+#: paginated" and flagged their own iterators as stray. Detection stays by SHAPE
+#: rather than by an endpoint list, so a resource that reintroduces a second
+#: dialect fails here instead of being assumed away.
+CURSOR_ENVELOPES = (frozenset({"data", "has_more", "next_cursor"}),)
 
 
 def _cursor_list_operations(spec: dict[str, Any]) -> set[tuple[str, str]]:
@@ -156,7 +164,7 @@ def _cursor_list_operations(spec: dict[str, Any]) -> set[tuple[str, str]]:
             for media in resolved.get("content", {}).values():
                 schema = _resolve_ref(spec, media.get("schema", {}))
                 properties = schema.get("properties", {}) if isinstance(schema, dict) else {}
-                if CURSOR_ENVELOPE.issubset(properties):
+                if any(envelope.issubset(properties) for envelope in CURSOR_ENVELOPES):
                     cursor_ops.add((verb, norm))
     return cursor_ops
 

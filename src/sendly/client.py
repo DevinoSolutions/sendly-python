@@ -36,6 +36,7 @@ from sendly.errors import (
 from sendly.resources.analytics import AnalyticsResource
 from sendly.resources.campaigns import CampaignsResource
 from sendly.resources.contacts import ContactsResource
+from sendly.resources.deliverability import DeliverabilityResource
 from sendly.resources.domains import DomainsResource
 from sendly.resources.emails import EmailsResource
 from sendly.resources.events import EventsResource
@@ -43,9 +44,12 @@ from sendly.resources.lists import ListsResource
 from sendly.resources.mailboxes import MailboxesResource
 from sendly.resources.projects import ProjectsResource
 from sendly.resources.segments import SegmentsResource
+from sendly.resources.snippets import SnippetsResource
 from sendly.resources.suppression import SuppressionResource
 from sendly.resources.templates import TemplatesResource
+from sendly.resources.topics import TopicsResource
 from sendly.resources.usage import UsageResource
+from sendly.resources.validation import ValidationResource
 from sendly.resources.verify import VerifyResource
 from sendly.resources.webhooks import WebhooksResource
 from sendly.resources.workflows import WorkflowsResource
@@ -59,7 +63,7 @@ if TYPE_CHECKING:
 __all__ = ["DEFAULT_BASE_URL", "SDK_VERSION", "Sendly"]
 
 #: Package version. Kept in sync with ``pyproject.toml``.
-SDK_VERSION = "1.0.0"
+SDK_VERSION = "1.1.0"
 
 #: Default production API base. Override via ``base_url`` for staging/self-hosted.
 DEFAULT_BASE_URL = "https://api.sendly.now"
@@ -137,6 +141,7 @@ class Sendly:
         self.webhooks = WebhooksResource(self)
         self.suppression = SuppressionResource(self)
         self.lists = ListsResource(self)
+        self.snippets = SnippetsResource(self)
         # Reads only -- the mailbox writes need a user, which an API key is not.
         self.mailboxes = MailboxesResource(self)
         # /api/v1 surface. Same client, same auth; bare resource bodies instead
@@ -147,6 +152,9 @@ class Sendly:
         self.analytics = AnalyticsResource(self)
         self.usage = UsageResource(self)
         self.projects = ProjectsResource(self)
+        self.topics = TopicsResource(self)
+        self.validation = ValidationResource(self)
+        self.deliverability = DeliverabilityResource(self)
 
     def request(
         self,

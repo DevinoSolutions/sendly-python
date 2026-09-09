@@ -40,7 +40,19 @@ SendEmailResponse = JSONDict
 BatchSendResponse = JSONDict
 EmailRecord = JSONDict
 EmailListResponse = JSONDict
-EmailGetResponse = JSONDict
+
+#: One transition in a message's delivery history -- the append-only record
+#: behind ``status``. ``status`` says where the message is now; these say how it
+#: got there.
+EmailEvent = JSONDict
+#: An email together with its delivery history, oldest first.
+EmailWithEvents = JSONDict
+#: A single email with no history -- what ``emails.cancel_schedule`` answers.
+#: Was ``EmailGetResponse``, which named the operation rather than the shape and
+#: was then reused by an operation that is not a GET.
+EmailResponse = JSONDict
+#: ``emails.get`` -- one email plus its delivery events.
+EmailDetailResponse = JSONDict
 
 # The versioned send. Distinct from the legacy aliases above, which post to
 # ``/api/emails`` and answer with row ids and no delivery status.
@@ -81,6 +93,14 @@ ProjectRecordV1 = JSONDict
 
 TemplateRecord = JSONDict
 TemplateListResponse = JSONDict
+
+# ---------- Snippets ----------
+#
+# Reusable body fragments a template includes with ``{{> name}}``. Gated by the
+# same ``templates:*`` scopes as the templates that include them.
+
+SnippetRecord = JSONDict
+SnippetListResponse = JSONDict
 
 # ---------- Webhooks ----------
 
@@ -147,3 +167,76 @@ CampaignAnalytics = JSONDict
 TopCampaignList = JSONDict
 
 UsageSummary = JSONDict
+
+# ---------- Contacts (v1) ----------
+
+ContactV1 = JSONDict
+ContactListV1 = CursorList
+ContactDeletedV1 = JSONDict
+#: Everything one contact has said they want, topic by topic.
+ContactTopicPreferencesV1 = JSONDict
+
+# ---------- Lists (v1) ----------
+
+ListV1 = JSONDict
+ListListV1 = CursorList
+ListDeletedV1 = JSONDict
+
+# ---------- Templates (v1) ----------
+
+TemplateV1 = JSONDict
+TemplateListV1 = CursorList
+TemplateDeletedV1 = JSONDict
+
+# ---------- Domains (v1) ----------
+
+DomainV1 = JSONDict
+DomainListV1 = CursorList
+DomainDeletedV1 = JSONDict
+
+# ---------- Webhooks (v1) ----------
+
+WebhookV1 = JSONDict
+WebhookListV1 = CursorList
+WebhookDeletedV1 = JSONDict
+#: The create response, and the only time the signing secret is readable.
+WebhookCreatedV1 = JSONDict
+#: Rotation answers the new secret once, for the same reason.
+WebhookSecretRotatedV1 = JSONDict
+
+# ---------- Suppressions (v1) ----------
+
+SuppressionV1 = JSONDict
+SuppressionListV1 = CursorList
+SuppressionDeletedV1 = JSONDict
+
+# ---------- Topics (v1) ----------
+
+TopicV1 = JSONDict
+TopicListV1 = CursorList
+TopicSubscriptionV1 = JSONDict
+
+# ---------- Email validation (v1) ----------
+
+EmailValidationBatchV1 = JSONDict
+EmailValidationRunV1 = JSONDict
+EmailValidationResultListV1 = CursorList
+
+# ---------- Deliverability (v1) ----------
+
+DeliverabilityDiagnosisV1 = JSONDict
+RecipientDomainStatsV1 = JSONDict
+RecipientDomainStatsListV1 = CursorList
+DmarcReportV1 = JSONDict
+DmarcReportListV1 = CursorList
+
+# ---------- Campaign failures (v1) ----------
+
+CampaignFailureV1 = JSONDict
+CampaignFailureListV1 = CursorList
+CampaignRetryFailedV1 = JSONDict
+
+# ---------- Workflow graph and lifecycle (v1) ----------
+
+WorkflowGraphV1 = JSONDict
+WorkflowStateChangeV1 = JSONDict

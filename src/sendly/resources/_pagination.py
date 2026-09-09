@@ -25,8 +25,11 @@ def iterate_cursor(
     ``fetch`` receives the query for one page — the caller's own filters, plus
     the ``after`` cursor from page two onward — and returns the raw cursor
     envelope. Iteration stops when ``has_more`` is false or ``next_cursor`` is
-    ``None``, and also when a page carries no ``data`` list, so a malformed
-    response ends the walk instead of looping forever.
+    ``None``, when a page carries no ``data`` list, and when a page hands back
+    the very cursor it was given -- so a malformed or stuck response ends the
+    walk instead of looping forever. The last of those came from the two
+    hand-rolled walkers this helper absorbed in 1.1; consolidating them must not
+    drop a stop condition the resources that had it were relying on.
 
     The caller's filters are held fixed for the whole walk on purpose: changing
     them mid-pagination invalidates the cursor and the API answers ``422
@@ -44,6 +47,6 @@ def iterate_cursor(
         if not page.get("has_more"):
             return
         cursor = page.get("next_cursor")
-        if not cursor:
+        if not cursor or cursor == params.get("after"):
             return
         params = {**params, "after": cursor}
