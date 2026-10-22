@@ -16,6 +16,8 @@ if TYPE_CHECKING:
         DomainDeletedV1,
         DomainListResponse,
         DomainListV1,
+        DomainLogoReadinessV1,
+        DomainLogoV1,
         DomainRecord,
         DomainSetupSession,
         DomainV1,
@@ -206,5 +208,61 @@ class DomainsResource:
         """
         response: DomainDeletedV1 = self._client.request(
             method="DELETE", path=f"/api/v1/domains/{encode_path_segment(id)}"
+        )
+        return response
+
+    def get_logo_v1(self, id: str) -> DomainLogoV1:
+        """The logo this identity serves to inboxes (BIMI), the
+        ``default._bimi`` TXT record that makes them fetch it (``bimi_record``),
+        and a fresh DNS reading of whether they will show it today.
+
+        The URL never changes, so the record is published once. Until a logo is
+        uploaded it serves a default (the domain's initial), and it serves
+        nothing until the identity verifies. Providers decide whether to show a
+        logo; Gmail also needs a VMC or CMC certificate, which Sendly neither
+        issues nor checks. :meth:`get_logo_readiness_v1` is the full checklist.
+        """
+        response: DomainLogoV1 = self._client.request(
+            method="GET", path=f"/api/v1/domains/{encode_path_segment(id)}/logo"
+        )
+        return response
+
+    def upload_logo_v1(self, id: str, body: Body) -> DomainLogoV1:
+        """Replace the logo with an SVG: ``{"svg": "<svg ...>"}``.
+
+        It is rebuilt into SVG Tiny PS, the profile BIMI requires: square, shapes
+        rather than ``<text>``, nothing referenced outside itself, at most 32 KB
+        once rebuilt. A file that cannot be rebuilt answers 422
+        ``validation_error`` with a ``detail`` naming what to change, and the
+        previous logo stays in place.
+        """
+        response: DomainLogoV1 = self._client.request(
+            method="PUT", path=f"/api/v1/domains/{encode_path_segment(id)}/logo", body=body
+        )
+        return response
+
+    def delete_logo_v1(self, id: str) -> DomainLogoV1:
+        """Remove the uploaded logo, so the URL serves the default again.
+
+        Returns the logo now served; removing one that was never uploaded is not
+        an error. The DNS record does not change.
+        """
+        response: DomainLogoV1 = self._client.request(
+            method="DELETE", path=f"/api/v1/domains/{encode_path_segment(id)}/logo"
+        )
+        return response
+
+    def get_logo_readiness_v1(self, id: str) -> DomainLogoReadinessV1:
+        """How ready the identity is to show its logo as the inbox avatar.
+
+        Each step (DMARC at enforcement on the host and its organizational
+        domain, the BIMI record, the logo file, the mark certificate) comes back
+        ``met``, ``missing``, ``unknown`` or ``not_applicable`` with a
+        plain-English ``reason``, plus one checklist per inbox (Gmail, Yahoo,
+        Apple Mail, Fastmail). For the certificate only "the URL answers with a
+        PEM file" is checked; its chain is not validated.
+        """
+        response: DomainLogoReadinessV1 = self._client.request(
+            method="GET", path=f"/api/v1/domains/{encode_path_segment(id)}/logo/readiness"
         )
         return response

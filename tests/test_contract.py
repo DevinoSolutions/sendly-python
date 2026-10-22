@@ -48,19 +48,9 @@ _PARAM_RE = re.compile(r"\{[^}]*\}")
 #: every entry is asserted to exist in the vendored spec and to NOT be
 #: implemented, so a stale entry fails the suite.
 #:
-#: NOT YET -- a genuine gap. Kept in step with sendly-js's NOT_YET_IMPLEMENTED.
-NOT_YET_IMPLEMENTED: set[tuple[str, str]] = {
-    # Reading and answering a mailbox's mail.
-    ("GET", "/api/mailboxes/{id}/conversations"),
-    ("GET", "/api/mailboxes/{id}/conversations/{conversationId}"),
-    ("POST", "/api/mailboxes/{id}/conversations/{conversationId}/reply"),
-    ("GET", "/api/mailboxes/{id}/attachments/{attachmentId}"),
-    # A sending domain's sender logo (the inbox avatar) and its readiness checklist.
-    ("GET", "/api/v1/domains/{id}/logo"),
-    ("PUT", "/api/v1/domains/{id}/logo"),
-    ("DELETE", "/api/v1/domains/{id}/logo"),
-    ("GET", "/api/v1/domains/{id}/logo/readiness"),
-}
+#: NOT YET -- a genuine gap. Empty: every key-callable operation is mapped to a
+#: resource method. Kept in step with sendly-js's NOT_YET_IMPLEMENTED.
+NOT_YET_IMPLEMENTED: set[tuple[str, str]] = set()
 
 
 def _is_compat_dialect(path: str) -> bool:
@@ -170,6 +160,11 @@ def _resolve_ref(spec: dict[str, Any], node: Any) -> Any:
 #: dialect fails here instead of being assumed away.
 CURSOR_ENVELOPES = (frozenset({"data", "has_more", "next_cursor"}),)
 
+#: The legacy ``/api/*`` surface's one cursor list, a mailbox's conversations:
+#: ``{success, data: {items, nextCursor}}``, paged by passing ``nextCursor`` back
+#: as ``cursor``. Recognised by that nested shape, not by path, for the same reason.
+LEGACY_CURSOR_PAGE = frozenset({"items", "nextCursor"})
+
 
 def _cursor_list_operations(spec: dict[str, Any]) -> set[tuple[str, str]]:
     """Spec operations answering the cursor envelope, as ``(VERB, normalized_path)``.
@@ -189,6 +184,11 @@ def _cursor_list_operations(spec: dict[str, Any]) -> set[tuple[str, str]]:
                 schema = _resolve_ref(spec, media.get("schema", {}))
                 properties = schema.get("properties", {}) if isinstance(schema, dict) else {}
                 if any(envelope.issubset(properties) for envelope in CURSOR_ENVELOPES):
+                    cursor_ops.add((verb, norm))
+                data = _resolve_ref(spec, properties.get("data", {}))
+                if isinstance(data, dict) and LEGACY_CURSOR_PAGE.issubset(
+                    data.get("properties", {})
+                ):
                     cursor_ops.add((verb, norm))
     return cursor_ops
 
@@ -239,7 +239,8 @@ def _request_calls(tree: ast.AST) -> list[ast.Call]:
         for node in ast.walk(tree)
         if isinstance(node, ast.Call)
         and isinstance(node.func, ast.Attribute)
-        and node.func.attr == "request"
+        # ``request_bytes`` is the same call for an operation that answers a file.
+        and node.func.attr in {"request", "request_bytes"}
     ]
 
 

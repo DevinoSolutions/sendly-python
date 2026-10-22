@@ -15,6 +15,7 @@ same across both SDKs.
 from __future__ import annotations
 
 from collections.abc import Mapping
+from dataclasses import dataclass
 from typing import Any
 
 # ---------- Generic JSON ----------
@@ -84,6 +85,26 @@ AppPasswordRecord = JSONDict
 #: types here sidesteps the shadowing and keeps the annotations readable.
 MailboxList = list[JSONDict]
 AppPasswordList = list[JSONDict]
+#: One page of a mailbox's threads: ``{items, nextCursor}``.
+MailboxConversationPage = JSONDict
+#: One thread in a mailbox: correspondent, subject, status, last activity.
+MailboxConversation = JSONDict
+#: A thread's messages, oldest first. Bodies are the sender's and untrusted.
+MailboxMessageList = list[JSONDict]
+
+
+@dataclass(frozen=True)
+class SendlyFile:
+    """A file the API answered with, as :meth:`Sendly.request_bytes` returns it."""
+
+    #: The body, byte for byte.
+    data: bytes
+    #: As the server declared it. For a mailbox attachment that is the SENDER's
+    #: claim: do not trust it.
+    content_type: str | None
+    #: ``attachment; filename="..."`` or ``inline; ...``, verbatim.
+    content_disposition: str | None
+
 
 # ---------- Projects (v1) ----------
 
@@ -193,6 +214,10 @@ TemplateDeletedV1 = JSONDict
 DomainV1 = JSONDict
 DomainListV1 = CursorList
 DomainDeletedV1 = JSONDict
+#: The logo an identity serves to inboxes, its BIMI record, and a DNS readiness reading.
+DomainLogoV1 = JSONDict
+#: The per-step, per-inbox checklist for showing the logo as the inbox avatar.
+DomainLogoReadinessV1 = JSONDict
 
 # ---------- Webhooks (v1) ----------
 
