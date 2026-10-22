@@ -439,6 +439,28 @@ neither is a spelling of the other. `verify_v1` verifies nothing itself:
 verification happens in the domain's DNS when its owner publishes the DKIM
 records SES minted at creation, and this call asks SES what it currently sees.
 
+#### The sender logo (BIMI)
+
+Each identity serves a logo that BIMI-capable inboxes show beside its mail, once
+its DNS is ready:
+
+```python
+logo = sendly.domains.get_logo_v1("d_123")
+print(logo["bimi_record"])  # publish this TXT record once; the URL never changes
+
+sendly.domains.upload_logo_v1("d_123", {"svg": svg_source})  # square, shapes not <text>
+for item in sendly.domains.get_logo_readiness_v1("d_123")["items"]:
+    print(item["key"], item["status"], item["reason"])
+```
+
+The upload is rebuilt into SVG Tiny PS, the profile BIMI requires. A file that
+cannot be rebuilt (text not converted to outlines, a raster image, a canvas that
+is not square, over 32 KB once cleaned) is a 422 `validation_error` naming what to
+change, and the previous logo stays. `delete_logo_v1` goes back to the default
+(the domain's initial). Providers still decide whether to show a logo, and Gmail
+and Apple Mail need a VMC or CMC certificate, which Sendly neither issues nor
+validates.
+
 ### Mailboxes
 
 Receiving mailboxes on the project's verified domains. The reads are reads; the
@@ -459,8 +481,8 @@ for pw in sendly.mailboxes.list_app_passwords("mb_123"):
     print(pw["name"], pw["lastFour"], pw["lastUsedAt"])
 ```
 
-This lists the mailboxes themselves, never their contents — received messages
-are not part of the public API. The mailbox **password** is never returned by
+`list` and `get` describe the mailboxes themselves, never their contents (the
+mail is below, under a scope of its own). The mailbox **password** is never returned by
 any of these reads; mailbox credentials are app passwords, created from the
 dashboard and shown once. `list_app_passwords` returns only the passwords that
 are still active — a revoked one drops out, so this is not an audit history.
@@ -515,6 +537,29 @@ is not thereby a client that may mail your customers. Everything you pass is
 treated strictly as data describing what to write, never as instructions to the
 model. Capped at 120 requests an hour per project; 502 means the model was
 unreachable.
+
+#### The mail itself: read, reply, download
+
+These read correspondence from people outside your project, so they need
+`mailbox-conversations:read`, and answering needs `mailbox-conversations:reply`.
+Both scopes are **opt-in only**: a key holds one only if it was ticked by name
+when the key was created, and neither the legacy full-access key nor the "Full
+access" preset carries it. An existing key gets 403 until you mint one that does.
+
+```python
+for thread in sendly.mailboxes.iter_list_conversations("mb_123", {"status": "open"}):
+    messages = sendly.mailboxes.get_conversation("mb_123", thread["id"])  # oldest first
+
+sendly.mailboxes.reply_to_conversation("mb_123", thread_id, {"body": "Sorted, thanks."})
+
+file = sendly.mailboxes.download_attachment("mb_123", attachment_id)
+# file.data is bytes; file.content_type is the SENDER's claim.
+```
+
+A reply names neither the recipient nor the sender: it answers whoever last wrote
+in, from the mailbox's own address, in the same thread. Message bodies and
+attachments were written by the sender, so treat `htmlBody`, the bytes and their
+content type as untrusted. Reading marks nothing as read.
 
 ### Templates and snippets
 

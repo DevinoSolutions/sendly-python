@@ -50,6 +50,7 @@ from sendly.resources.validation import ValidationResource
 from sendly.resources.verify import VerifyResource
 from sendly.resources.webhooks import WebhooksResource
 from sendly.resources.workflows import WorkflowsResource
+from sendly.types import SendlyFile
 from sendly.webhook_utils import DEFAULT_TOLERANCE_MS, construct_event, verify_signature
 
 __version__ = SDK_VERSION
@@ -74,6 +75,7 @@ __all__ = [
     "SendlyConflictError",
     "SendlyConnectionError",
     "SendlyError",
+    "SendlyFile",
     "SendlyNotFoundError",
     "SendlyPermissionError",
     "SendlyRateLimitError",

@@ -7,6 +7,15 @@ All notable changes to `sendly-python` are documented here. This project adheres
 
 ### Added
 
+- **Mailbox mail.** `mailboxes.list_conversations` / `iter_list_conversations`,
+  `get_conversation`, `reply_to_conversation` and `download_attachment`, under
+  the opt-in `mailbox-conversations:read` / `:reply` scopes, which no existing
+  key carries.
+- **The sender logo (BIMI).** `domains.get_logo_v1`, `upload_logo_v1`,
+  `delete_logo_v1` and `get_logo_readiness_v1`.
+- **`client.request_bytes`** for an operation that answers a file. It returns a
+  `SendlyFile(data: bytes, content_type, content_disposition)` and raises the
+  same typed errors. `request` reads the body as text, which mangles a binary file.
 - **`emails.send` takes `listUnsubscribe`**, the https URL of your own one-click
   unsubscribe endpoint. A transactional send carries no unsubscribe of Sendly's,
   because Sendly cannot know what the reader would be opting out of; with this

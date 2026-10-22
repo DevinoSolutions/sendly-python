@@ -53,6 +53,7 @@ from sendly.resources.validation import ValidationResource
 from sendly.resources.verify import VerifyResource
 from sendly.resources.webhooks import WebhooksResource
 from sendly.resources.workflows import WorkflowsResource
+from sendly.types import SendlyFile
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -174,30 +175,7 @@ class Sendly:
         success body, or ``None`` for 204 / ``no_content``. Errors are raised as
         :class:`SendlyError` subclasses based on status.
         """
-        url = self._build_url(path, query)
-        request_headers: dict[str, str] = {
-            "Authorization": f"Bearer {self._api_key}",
-            "Accept": "application/json",
-            "User-Agent": USER_AGENT,
-            **self._default_headers,
-            **(dict(headers) if headers else {}),
-        }
-
-        content: str | None = None
-        if body is not None:
-            request_headers["Content-Type"] = "application/json"
-            content = json.dumps(body)
-
-        try:
-            response = self._client.request(
-                method,
-                url,
-                content=content,
-                headers=request_headers,
-                timeout=self._timeout,
-            )
-        except httpx.HTTPError as exc:
-            raise SendlyConnectionError(f"Sendly request failed: {exc}", exc) from exc
+        response = self._send(method=method, path=path, body=body, query=query, headers=headers)
 
         # 204 No Content or caller-forced no-content (DELETE endpoints, which
         # now respond 200 with an id body the SDK intentionally discards).
@@ -228,6 +206,67 @@ class Sendly:
             )
 
         return parsed
+
+    def request_bytes(
+        self,
+        *,
+        method: str,
+        path: str,
+        query: Query | None = None,
+        headers: Mapping[str, str] | None = None,
+    ) -> SendlyFile:
+        """Like :meth:`request`, for an operation whose success body is a file.
+
+        Returns the raw bytes with the response's own ``Content-Type`` and
+        ``Content-Disposition``. A failure is still a JSON error document and is
+        raised as the same :class:`SendlyError` subclasses. Reading the body as
+        text, as :meth:`request` does, would mangle any file that is not UTF-8.
+        """
+        response = self._send(
+            method=method, path=path, query=query, headers={"Accept": "*/*", **(headers or {})}
+        )
+        if not response.is_success:
+            self._raise_for_error(response)
+        return SendlyFile(
+            data=response.content,
+            content_type=response.headers.get("content-type"),
+            content_disposition=response.headers.get("content-disposition"),
+        )
+
+    def _send(
+        self,
+        *,
+        method: str,
+        path: str,
+        body: Body | None = None,
+        query: Query | None = None,
+        headers: Mapping[str, str] | None = None,
+    ) -> httpx.Response:
+        """Issue the request; errors and parsing are the caller's."""
+        url = self._build_url(path, query)
+        request_headers: dict[str, str] = {
+            "Authorization": f"Bearer {self._api_key}",
+            "Accept": "application/json",
+            "User-Agent": USER_AGENT,
+            **self._default_headers,
+            **(dict(headers) if headers else {}),
+        }
+
+        content: str | None = None
+        if body is not None:
+            request_headers["Content-Type"] = "application/json"
+            content = json.dumps(body)
+
+        try:
+            return self._client.request(
+                method,
+                url,
+                content=content,
+                headers=request_headers,
+                timeout=self._timeout,
+            )
+        except httpx.HTTPError as exc:
+            raise SendlyConnectionError(f"Sendly request failed: {exc}", exc) from exc
 
     def unwrap(self, envelope: Any) -> Any:
         """Return the ``data`` field of a ``{success, data}`` envelope, else the
