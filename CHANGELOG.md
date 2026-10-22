@@ -3,6 +3,24 @@
 All notable changes to `sendly-python` are documented here. This project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **`emails.send` takes `listUnsubscribe`**, the https URL of your own one-click
+  unsubscribe endpoint. A transactional send carries no unsubscribe of Sendly's,
+  because Sendly cannot know what the reader would be opting out of; with this
+  field Sendly writes `List-Unsubscribe: <url>` and
+  `List-Unsubscribe-Post: List-Unsubscribe=One-Click` (RFC 8058), so the mail
+  client shows its own unsubscribe button. The two headers stay reserved in
+  `headers`. The server answers `422` for a value that is not https, is over
+  2048 characters, or contains whitespace, a comma or angle brackets. Campaign
+  and workflow sends ignore it and keep Sendly's own link.
+- **The vendored spec is re-synced** from the platform contract. The new mailbox
+  conversation and domain-logo operations are listed as not yet implemented, and
+  the provider compat dialects under `/api/compat/` are excluded by path: those
+  are for the other providers' own SDKs.
+
 ## [1.1.0] - 2026-09-05
 
 Four new resources, the `/api/v1` half of six that only had a legacy one, and a

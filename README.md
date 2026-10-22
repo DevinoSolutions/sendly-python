@@ -233,6 +233,13 @@ receipt = sendly.emails.send({"from": "a@you.com", "to": "b@them.com", "subject"
 sendly.emails.send_legacy({"from": "a@you.com", "to": ["b@them.com", "c@them.com"],
                            "subject": "Hi", "body": "<p>Hi</p>"})
 
+# Your own one-click unsubscribe (https only). Sendly writes the RFC 8058
+# List-Unsubscribe headers, so the mail client shows its unsubscribe button; the
+# endpoint gets a cookie-less POST and must unsubscribe the reader on it alone.
+sendly.emails.send({"from": "notify@you.com", "to": "b@them.com", "subject": "New reply",
+                    "body": "<p>Someone replied.</p>",
+                    "listUnsubscribe": "https://you.com/unsubscribe?token=abc123"})
+
 # Batch send (up to 100)
 sendly.emails.batch({"emails": [{"from": "a@you.com", "to": "b@them.com", "subject": "Hi", "body": "<p>Hi</p>"}]})
 
