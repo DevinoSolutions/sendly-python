@@ -48,10 +48,32 @@ _PARAM_RE = re.compile(r"\{[^}]*\}")
 #: every entry is asserted to exist in the vendored spec and to NOT be
 #: implemented, so a stale entry fails the suite.
 #:
-#: NOT YET -- a genuine gap. Empty: every key-callable operation is now mapped to
-#: a resource method. Retained as the seam for future spec additions. Kept in
-#: step with sendly-js's NOT_YET_IMPLEMENTED.
-NOT_YET_IMPLEMENTED: set[tuple[str, str]] = set()
+#: NOT YET -- a genuine gap. Kept in step with sendly-js's NOT_YET_IMPLEMENTED.
+NOT_YET_IMPLEMENTED: set[tuple[str, str]] = {
+    # Reading and answering a mailbox's mail.
+    ("GET", "/api/mailboxes/{id}/conversations"),
+    ("GET", "/api/mailboxes/{id}/conversations/{conversationId}"),
+    ("POST", "/api/mailboxes/{id}/conversations/{conversationId}/reply"),
+    ("GET", "/api/mailboxes/{id}/attachments/{attachmentId}"),
+    # A sending domain's sender logo (the inbox avatar) and its readiness checklist.
+    ("GET", "/api/v1/domains/{id}/logo"),
+    ("PUT", "/api/v1/domains/{id}/logo"),
+    ("DELETE", "/api/v1/domains/{id}/logo"),
+    ("GET", "/api/v1/domains/{id}/logo/readiness"),
+}
+
+
+def _is_compat_dialect(path: str) -> bool:
+    """Whether an operation is another provider's wire format.
+
+    ``/api/compat/*`` serves Resend, SendGrid, Postmark, Mailgun and Plunk shapes
+    so that THAT provider's client can switch to Sendly by changing its base URL.
+    A method here would be a second, foreign-shaped ``emails.send``. Matched by
+    path rather than listed, so a new dialect needs no edit, and the suite checks
+    the SDK implements none of them.
+    """
+    return path.startswith("/api/compat/")
+
 
 #: NEVER, by construction -- the credential this SDK uses cannot call these.
 #:
@@ -80,7 +102,9 @@ NOT_SDK_CALLABLE: set[tuple[str, str]] = {
     ("POST", "/api/projects/{id}/api-keys"),
     ("DELETE", "/api/projects/{id}/api-keys/{keyId}"),
     ("POST", "/api/projects/{id}/api-keys/{keyId}/rotate"),
-    # A project is created FOR a user; there is nothing for a key to act as.
+    # A project is created FOR a user, and listed for one; there is nothing for
+    # a key to act as.
+    ("GET", "/api/users/me/projects"),
     ("POST", "/api/users/me/projects"),
 }
 
@@ -279,13 +303,23 @@ def test_every_spec_operation_is_implemented_or_listed():
     unhandled = sorted(
         f"{verb} {path}"
         for verb, path, norm in _spec_operations(spec)
-        if (verb, norm) not in implemented and (verb, norm) not in listed
+        if (verb, norm) not in implemented
+        and (verb, norm) not in listed
+        and not _is_compat_dialect(path)
     )
     assert not unhandled, (
         "Spec operations neither implemented by the SDK nor listed in "
         "NOT_YET_IMPLEMENTED / NOT_SDK_CALLABLE. Add a resource method or list "
         "them explicitly:\n  " + "\n  ".join(unhandled)
     )
+
+
+def test_no_sdk_method_targets_another_providers_compat_dialect():
+    spec = _load_spec()
+    compat = [path for _verb, path, _norm in _spec_operations(spec) if _is_compat_dialect(path)]
+    # The probe must see the dialects, or the assertion below is vacuous.
+    assert compat
+    assert not [norm for _verb, norm, _ in _sdk_operations() if _is_compat_dialect(norm)]
 
 
 @pytest.mark.parametrize(
@@ -332,7 +366,9 @@ def test_not_sdk_callable_matches_the_contracts_own_declarations():
         # routes), which is a different fact from refusing an API key. Excluded
         # by that property rather than by name, so a new open route needs no
         # edit here.
-        elif security and not key_callable:
+        # A dialect carries its provider's own credential (a Postmark server
+        # token, Mailgun basic auth); it is excused by path, not by this list.
+        elif security and not key_callable and not _is_compat_dialect(path):
             refuses_key_but_unlisted.append(f"{verb} {path}")
 
     assert not listed_but_callable, (

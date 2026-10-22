@@ -37,6 +37,20 @@ def test_send_posts_the_versioned_path_and_returns_a_delivery_status():
     assert receipt["status"] == "PENDING"
 
 
+def test_send_forwards_the_senders_own_one_click_unsubscribe_endpoint():
+    rec = Recorder(json_response(202, V1_RECEIPT))
+    client = make_client(rec)
+    body = {
+        "to": "test+user@example.com",
+        "subject": "hi",
+        "listUnsubscribe": "https://notify.example.com/unsubscribe?token=abc123",
+    }
+
+    client.emails.send(body)
+
+    assert json.loads(rec.request.content) == body
+
+
 def test_send_is_the_versioned_send_not_the_legacy_one():
     # 1.0 moved the default from the legacy /api/emails (row ids, no status,
     # array `to` fanned out) to /api/v1/emails. The legacy behaviour lives on as
