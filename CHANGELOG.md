@@ -5,6 +5,8 @@ All notable changes to `sendly-python` are documented here. This project adheres
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-11-03
+
 ### Added
 
 - **Mailbox mail.** `mailboxes.list_conversations` / `iter_list_conversations`,
