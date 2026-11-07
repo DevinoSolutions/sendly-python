@@ -5,6 +5,27 @@ All notable changes to `sendly-python` are documented here. This project adheres
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-11-07
+
+### Added
+
+- **Why a message bounced or was complained about.** An email (`emails.get`, `emails.list`)
+  gains the keys `bounceType`, `bounceSubType`, `bounceStatusCode`, `bounceDiagnosticCode` and
+  `complaintFeedbackType`; each entry of its delivery history gains the four `bounce*` keys. The
+  `email.bounced` webhook body gains `bounceSubType`, `bounceStatusCode` and
+  `bounceDiagnosticCode`, and `email.complained` gains `complaintFeedbackType`. All are `str | None`
+  and additive: responses are plain dicts, so existing code is unaffected.
+- **Three other optional fields arrive with the re-sync:** `Email.hold`, `Problem.next` and
+  `CreateApiKeyBody.tiers`. All are optional and additive.
+
+### Changed
+
+- **The vendored contract is re-synced** from the released one (`docs.sendly.now/openapi.json`),
+  which had grown from 106 to 198 paths since the last sync. The additions are account, dashboard
+  and member-management routes plus key-callable operations this SDK has no method for yet; the
+  contract suite lists them in `NOT_SDK_CALLABLE` / `NOT_YET_IMPLEMENTED` rather than shipping
+  them unreviewed. No existing method changed.
+
 ## [1.2.0] - 2026-11-03
 
 ### Added

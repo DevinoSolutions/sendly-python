@@ -48,9 +48,80 @@ _PARAM_RE = re.compile(r"\{[^}]*\}")
 #: every entry is asserted to exist in the vendored spec and to NOT be
 #: implemented, so a stale entry fails the suite.
 #:
-#: NOT YET -- a genuine gap. Empty: every key-callable operation is mapped to a
-#: resource method. Kept in step with sendly-js's NOT_YET_IMPLEMENTED.
-NOT_YET_IMPLEMENTED: set[tuple[str, str]] = set()
+#: NOT YET -- a genuine gap: key-callable operations the contract publishes that
+#: no resource method wraps yet. Surfaced when the vendored spec was re-synced from
+#: the released contract (docs.sendly.now/openapi.json), which had grown from 106 to
+#: 198 paths since the previous vendoring. Kept in step with sendly-js's
+#: NOT_YET_IMPLEMENTED.
+NOT_YET_IMPLEMENTED: set[tuple[str, str]] = {
+    ("GET", "/api/activity"),
+    ("GET", "/api/activity/recent-count"),
+    ("GET", "/api/activity/stats"),
+    ("GET", "/api/activity/upcoming"),
+    ("GET", "/api/analytics/top-events"),
+    ("GET", "/api/audit-log"),
+    ("POST", "/api/campaigns/{id}/duplicate"),
+    ("POST", "/api/campaigns/{id}/test"),
+    ("POST", "/api/contacts/bulk-delete"),
+    ("POST", "/api/contacts/bulk-purge"),
+    ("POST", "/api/contacts/bulk-subscribe"),
+    ("POST", "/api/contacts/bulk-unsubscribe"),
+    ("GET", "/api/contacts/export"),
+    ("GET", "/api/contacts/fields"),
+    ("DELETE", "/api/contacts/fields/{field}"),
+    ("GET", "/api/contacts/fields/{field}/usage"),
+    ("GET", "/api/contacts/fields/{field}/values"),
+    ("POST", "/api/contacts/import"),
+    ("POST", "/api/contacts/lookup"),
+    ("POST", "/api/contacts/{id}/purge"),
+    ("GET", "/api/domains/{id}/dodomain-check"),
+    ("POST", "/api/domains/{id}/dodomain-reverify"),
+    ("GET", "/api/domains/{id}/warmup"),
+    ("POST", "/api/domains/{id}/warmup"),
+    ("PATCH", "/api/emails/{id}"),
+    ("GET", "/api/events/contact/{contactId}"),
+    ("DELETE", "/api/events/{eventName}"),
+    ("GET", "/api/events/{eventName}/usage"),
+    ("GET", "/api/inbox/conversations"),
+    ("GET", "/api/lists/{id}/members"),
+    ("DELETE", "/api/mailboxes/{id}/conversations/{conversationId}"),
+    ("GET", "/api/mailboxes/{id}/conversations/{conversationId}/contact"),
+    ("POST", "/api/mailboxes/{id}/conversations/{conversationId}/spam"),
+    ("PATCH", "/api/mailboxes/{id}/conversations/{conversationId}/status"),
+    ("GET", "/api/projects/{id}/security"),
+    ("GET", "/api/projects/{id}/setup-state"),
+    ("POST", "/api/segments/{id}/compute"),
+    ("DELETE", "/api/segments/{id}/members"),
+    ("POST", "/api/segments/{id}/members"),
+    ("POST", "/api/segments/{id}/refresh"),
+    ("POST", "/api/templates/{id}/duplicate"),
+    ("GET", "/api/templates/{id}/usage"),
+    ("GET", "/api/templates/{id}/versions"),
+    ("POST", "/api/templates/{id}/versions/{version}/revert"),
+    ("POST", "/api/uploads/image"),
+    ("GET", "/api/v1/billing"),
+    ("GET", "/api/v1/billing/plans"),
+    ("GET", "/api/v1/connections"),
+    ("POST", "/api/v1/connections/links"),
+    ("GET", "/api/v1/support/tickets"),
+    ("POST", "/api/v1/support/tickets"),
+    ("POST", "/api/webhooks/{id}/calls/{callId}/retry"),
+    ("POST", "/api/webhooks/{id}/replay-failed"),
+    ("POST", "/api/webhooks/{id}/test"),
+    ("GET", "/api/workflows/fields"),
+    ("GET", "/api/workflows/{id}/conversion-goals"),
+    ("POST", "/api/workflows/{id}/conversion-goals"),
+    ("DELETE", "/api/workflows/{id}/conversion-goals/{goalId}"),
+    ("POST", "/api/workflows/{id}/executions/cancel-all"),
+    ("GET", "/api/workflows/{id}/executions/{executionId}"),
+    ("POST", "/api/workflows/{id}/steps"),
+    ("DELETE", "/api/workflows/{id}/steps/{stepId}"),
+    ("PATCH", "/api/workflows/{id}/steps/{stepId}"),
+    ("POST", "/api/workflows/{id}/transitions"),
+    ("DELETE", "/api/workflows/{id}/transitions/{transitionId}"),
+    ("GET", "/api/workflows/{id}/versions"),
+    ("POST", "/api/workflows/{id}/versions/{version}/revert"),
+}
 
 
 def _is_compat_dialect(path: str) -> bool:
@@ -96,6 +167,54 @@ NOT_SDK_CALLABLE: set[tuple[str, str]] = {
     # a key to act as.
     ("GET", "/api/users/me/projects"),
     ("POST", "/api/users/me/projects"),
+    # Session/OAuth-only operations added to the contract since the last vendoring
+    # (account, dashboard and member management). None publishes ApiKeyAuth; the
+    # test below checks each against that.
+    ("DELETE", "/api/integrations/slack/installation"),
+    ("GET", "/api/integrations/slack/installation"),
+    ("PATCH", "/api/integrations/slack/installation"),
+    ("GET", "/api/mailboxes/{id}/project"),
+    ("GET", "/api/orgs"),
+    ("GET", "/api/orgs/{id}/inbox/conversations"),
+    ("GET", "/api/orgs/{id}/inbox/counts"),
+    ("GET", "/api/orgs/{id}/inbox/mailboxes"),
+    ("GET", "/api/orgs/{id}/mailboxes"),
+    ("GET", "/api/orgs/{id}/overview"),
+    ("POST", "/api/orgs/{id}/refresh"),
+    ("GET", "/api/projects/{id}/api-keys/{keyId}"),
+    ("GET", "/api/projects/{id}/appeals"),
+    ("POST", "/api/projects/{id}/appeals"),
+    ("GET", "/api/projects/{id}/members"),
+    ("POST", "/api/projects/{id}/members"),
+    ("DELETE", "/api/projects/{id}/members/{userId}"),
+    ("PATCH", "/api/projects/{id}/members/{userId}"),
+    ("DELETE", "/api/users/me"),
+    ("GET", "/api/users/me"),
+    ("PATCH", "/api/users/me"),
+    ("PUT", "/api/users/me/active-project"),
+    ("GET", "/api/users/me/brand-logos"),
+    ("GET", "/api/users/me/connected-apps"),
+    ("DELETE", "/api/users/me/connected-apps/{clientId}"),
+    ("PATCH", "/api/users/me/connected-apps/{clientId}"),
+    ("GET", "/api/users/me/exports"),
+    ("POST", "/api/users/me/exports"),
+    ("GET", "/api/users/me/exports/{exportId}/download"),
+    ("GET", "/api/users/me/notification-preferences"),
+    ("PUT", "/api/users/me/notification-preferences"),
+    ("GET", "/api/users/me/pro-entitlement"),
+    ("DELETE", "/api/users/me/projects/{id}"),
+    ("PATCH", "/api/users/me/projects/{id}"),
+    ("GET", "/api/users/me/projects/{id}/api-requests"),
+    ("GET", "/api/users/me/projects/{id}/api-usage"),
+    ("GET", "/api/users/me/projects/{id}/billing-consumption"),
+    ("GET", "/api/users/me/projects/{id}/billing-invoices"),
+    ("GET", "/api/users/me/projects/{id}/billing-limits"),
+    ("PUT", "/api/users/me/projects/{id}/billing-limits"),
+    ("POST", "/api/users/me/projects/{id}/billing-portal"),
+    ("POST", "/api/users/me/projects/{id}/checkout"),
+    ("POST", "/api/users/me/projects/{id}/reset"),
+    ("GET", "/api/users/me/referral"),
+    ("POST", "/api/v1/billing/subscription"),
 }
 
 
@@ -523,3 +642,18 @@ def test_a_parameterless_operation_takes_no_query_argument():
         assert list(parameters) == ["self"], (
             f"{attr}.{method} accepts {list(parameters)[1:]}, but the spec declares no parameters."
         )
+
+
+def test_bounce_and_complaint_detail_fields_are_in_the_contract() -> None:
+    """The responses are plain dicts, so the spec is what says these keys exist."""
+    schemas = _load_spec()["components"]["schemas"]
+    bounce = {"bounceType", "bounceSubType", "bounceStatusCode", "bounceDiagnosticCode"}
+    expected = {
+        "Email": bounce | {"complaintFeedbackType"},
+        "EmailEvent": bounce,
+        "WebhookEmailBouncedData": {"bounceSubType", "bounceStatusCode", "bounceDiagnosticCode"},
+        "WebhookEmailComplainedData": {"complaintFeedbackType"},
+    }
+    for name, fields in expected.items():
+        missing = fields - set(schemas[name]["properties"])
+        assert not missing, f"{name} no longer declares {sorted(missing)}"
