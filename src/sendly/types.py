@@ -39,12 +39,16 @@ Pagination = JSONDict
 SendEmailData = JSONDict
 SendEmailResponse = JSONDict
 BatchSendResponse = JSONDict
+#: An email row. Beyond the delivery fields it carries, ``str | None`` and ``None``
+#: until the event happens, ``bounceType``, ``bounceSubType``, ``bounceStatusCode``,
+#: ``bounceDiagnosticCode`` and ``complaintFeedbackType``.
 EmailRecord = JSONDict
 EmailListResponse = JSONDict
 
 #: One transition in a message's delivery history -- the append-only record
 #: behind ``status``. ``status`` says where the message is now; these say how it
-#: got there.
+#: got there. A bounce transition also carries ``bounceType``, ``bounceSubType``,
+#: ``bounceStatusCode`` and ``bounceDiagnosticCode`` (each ``str | None``).
 EmailEvent = JSONDict
 #: An email together with its delivery history, oldest first.
 EmailWithEvents = JSONDict

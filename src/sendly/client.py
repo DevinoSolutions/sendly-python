@@ -64,7 +64,7 @@ if TYPE_CHECKING:
 __all__ = ["DEFAULT_BASE_URL", "SDK_VERSION", "Sendly"]
 
 #: Package version. Kept in sync with ``pyproject.toml``.
-SDK_VERSION = "1.2.0"
+SDK_VERSION = "1.3.0"
 
 #: Default production API base. Override via ``base_url`` for staging/self-hosted.
 DEFAULT_BASE_URL = "https://api.sendly.now"

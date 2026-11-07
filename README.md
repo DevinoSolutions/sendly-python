@@ -279,6 +279,25 @@ for event in email["events"]:
 somebody opened, read `openedAt` / `opens` on the rows — engagement is not a
 status.
 
+A bounced or complained message says why. Each key below is `str | None` and is
+`None` until the event happens (or when the receiving server did not say):
+
+```python
+email = sendly.emails.get("em_123")["data"]
+if email["status"] == "BOUNCED":
+    # `bounceType` is "Permanent" / "Transient" / "Undetermined"; the rest are the
+    # receiving server's own words. Show them to a person, do not parse them.
+    print(email["bounceType"], email["bounceSubType"],
+          email["bounceStatusCode"], email["bounceDiagnosticCode"])
+if email["complainedAt"] is not None:
+    print(email["complaintFeedbackType"])  # e.g. "abuse"
+```
+
+Each entry of `email["events"]` carries the same four `bounce*` keys for the
+transition that recorded them. The `email.bounced` webhook body adds
+`bounceSubType`, `bounceStatusCode` and `bounceDiagnosticCode`, and
+`email.complained` adds `complaintFeedbackType`.
+
 ### Contacts
 
 ```python
