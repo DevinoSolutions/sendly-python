@@ -15,6 +15,8 @@ All notable changes to `sendly-python` are documented here. This project adheres
   `email.bounced` webhook body gains `bounceSubType`, `bounceStatusCode` and
   `bounceDiagnosticCode`, and `email.complained` gains `complaintFeedbackType`. All are `str | None`
   and additive: responses are plain dicts, so existing code is unaffected.
+- **Three other optional fields arrive with the re-sync:** `Email.hold`, `Problem.next` and
+  `CreateApiKeyBody.tiers`. All are optional and additive.
 
 ### Changed
 

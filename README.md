@@ -285,8 +285,9 @@ A bounced or complained message says why. Each key below is `str | None` and is
 ```python
 email = sendly.emails.get("em_123")["data"]
 if email["status"] == "BOUNCED":
-    # `bounceType` is "Permanent" / "Transient" / "Undetermined"; the rest are the
-    # receiving server's own words. Show them to a person, do not parse them.
+    # `bounceType` is "Permanent" or "Undetermined" here (a "Transient" bounce is
+    # retried and never sets BOUNCED); the rest are the receiving server's own words.
+    # Show them to a person, do not parse them.
     print(email["bounceType"], email["bounceSubType"],
           email["bounceStatusCode"], email["bounceDiagnosticCode"])
 if email["complainedAt"] is not None:
