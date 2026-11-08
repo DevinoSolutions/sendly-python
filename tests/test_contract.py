@@ -49,79 +49,13 @@ _PARAM_RE = re.compile(r"\{[^}]*\}")
 #: implemented, so a stale entry fails the suite.
 #:
 #: NOT YET -- a genuine gap: key-callable operations the contract publishes that
-#: no resource method wraps yet. Surfaced when the vendored spec was re-synced from
-#: the released contract (docs.sendly.now/openapi.json), which had grown from 106 to
-#: 198 paths since the previous vendoring. Kept in step with sendly-js's
-#: NOT_YET_IMPLEMENTED.
-NOT_YET_IMPLEMENTED: set[tuple[str, str]] = {
-    ("GET", "/api/activity"),
-    ("GET", "/api/activity/recent-count"),
-    ("GET", "/api/activity/stats"),
-    ("GET", "/api/activity/upcoming"),
-    ("GET", "/api/analytics/top-events"),
-    ("GET", "/api/audit-log"),
-    ("POST", "/api/campaigns/{id}/duplicate"),
-    ("POST", "/api/campaigns/{id}/test"),
-    ("POST", "/api/contacts/bulk-delete"),
-    ("POST", "/api/contacts/bulk-purge"),
-    ("POST", "/api/contacts/bulk-subscribe"),
-    ("POST", "/api/contacts/bulk-unsubscribe"),
-    ("GET", "/api/contacts/export"),
-    ("GET", "/api/contacts/fields"),
-    ("DELETE", "/api/contacts/fields/{field}"),
-    ("GET", "/api/contacts/fields/{field}/usage"),
-    ("GET", "/api/contacts/fields/{field}/values"),
-    ("POST", "/api/contacts/import"),
-    ("POST", "/api/contacts/lookup"),
-    ("POST", "/api/contacts/{id}/purge"),
-    ("GET", "/api/domains/{id}/dodomain-check"),
-    ("POST", "/api/domains/{id}/dodomain-reverify"),
-    ("GET", "/api/domains/{id}/warmup"),
-    ("POST", "/api/domains/{id}/warmup"),
-    ("PATCH", "/api/emails/{id}"),
-    ("GET", "/api/events/contact/{contactId}"),
-    ("DELETE", "/api/events/{eventName}"),
-    ("GET", "/api/events/{eventName}/usage"),
-    ("GET", "/api/inbox/conversations"),
-    ("GET", "/api/lists/{id}/members"),
-    ("DELETE", "/api/mailboxes/{id}/conversations/{conversationId}"),
-    ("GET", "/api/mailboxes/{id}/conversations/{conversationId}/contact"),
-    ("POST", "/api/mailboxes/{id}/conversations/{conversationId}/spam"),
-    ("PATCH", "/api/mailboxes/{id}/conversations/{conversationId}/status"),
-    ("GET", "/api/projects/{id}/security"),
-    ("GET", "/api/projects/{id}/setup-state"),
-    ("POST", "/api/segments/{id}/compute"),
-    ("DELETE", "/api/segments/{id}/members"),
-    ("POST", "/api/segments/{id}/members"),
-    ("POST", "/api/segments/{id}/refresh"),
-    ("POST", "/api/templates/{id}/duplicate"),
-    ("GET", "/api/templates/{id}/usage"),
-    ("GET", "/api/templates/{id}/versions"),
-    ("POST", "/api/templates/{id}/versions/{version}/revert"),
-    ("POST", "/api/uploads/image"),
-    ("GET", "/api/v1/billing"),
-    ("GET", "/api/v1/billing/plans"),
-    ("GET", "/api/v1/connections"),
-    ("POST", "/api/v1/connections/links"),
-    ("GET", "/api/v1/support/tickets"),
-    ("POST", "/api/v1/support/tickets"),
-    ("POST", "/api/webhooks/{id}/calls/{callId}/retry"),
-    ("POST", "/api/webhooks/{id}/replay-failed"),
-    ("POST", "/api/webhooks/{id}/test"),
-    ("GET", "/api/workflows/fields"),
-    ("GET", "/api/workflows/{id}/conversion-goals"),
-    ("POST", "/api/workflows/{id}/conversion-goals"),
-    ("DELETE", "/api/workflows/{id}/conversion-goals/{goalId}"),
-    ("POST", "/api/workflows/{id}/executions/cancel-all"),
-    ("GET", "/api/workflows/{id}/executions/{executionId}"),
-    ("POST", "/api/workflows/{id}/steps"),
-    ("DELETE", "/api/workflows/{id}/steps/{stepId}"),
-    ("PATCH", "/api/workflows/{id}/steps/{stepId}"),
-    ("POST", "/api/workflows/{id}/transitions"),
-    ("DELETE", "/api/workflows/{id}/transitions/{transitionId}"),
-    ("GET", "/api/workflows/{id}/versions"),
-    ("POST", "/api/workflows/{id}/versions/{version}/revert"),
-}
+#: no resource method wraps yet. Empty since the 67 operations surfaced by the
+#: re-sync from the released contract (docs.sendly.now/openapi.json, which had grown
+#: from 106 to 198 paths) were implemented. The set is kept, not deleted: the
+#: suite still checks it, so the next re-sync that publishes an operation the SDK
+#: lacks lists it here, visibly, instead of failing as an unexplained gap. Kept in
+#: step with sendly-js's NOT_YET_IMPLEMENTED.
+NOT_YET_IMPLEMENTED: set[tuple[str, str]] = set()
 
 
 def _is_compat_dialect(path: str) -> bool:
@@ -285,6 +219,23 @@ CURSOR_ENVELOPES = (frozenset({"data", "has_more", "next_cursor"}),)
 LEGACY_CURSOR_PAGE = frozenset({"items", "nextCursor"})
 
 
+#: Legacy listings whose spec response schema is left free-form (``{}``), so the
+#: envelope check below cannot see their cursor, yet whose route pages by cursor.
+#: The page shape is ``{data, cursor, hasMore}`` (activity feed, audit log, list
+#: members) or ``{items, nextCursor}`` (the cross-mailbox inbox); the SDK's
+#: ``iter_*`` companions walk exactly those. Listed by hand because the contract
+#: does not declare them; the pagination tests in ``test_activity.py`` and friends
+#: pin the shapes against the route.
+FREE_FORM_CURSOR_LISTS = frozenset(
+    {
+        ("GET", "/api/activity"),
+        ("GET", "/api/audit-log"),
+        ("GET", "/api/inbox/conversations"),
+        ("GET", "/api/lists/{}/members"),
+    }
+)
+
+
 def _cursor_list_operations(spec: dict[str, Any]) -> set[tuple[str, str]]:
     """Spec operations answering the cursor envelope, as ``(VERB, normalized_path)``.
 
@@ -292,7 +243,7 @@ def _cursor_list_operations(spec: dict[str, Any]) -> set[tuple[str, str]]:
     walk. The other v1 listings (analytics, event names/stats) return a bounded
     aggregate with no cursor.
     """
-    cursor_ops: set[tuple[str, str]] = set()
+    cursor_ops: set[tuple[str, str]] = set(FREE_FORM_CURSOR_LISTS)
     for verb, path, norm in _spec_operations(spec):
         operation = spec["paths"][path][verb.lower()]
         for code, response in operation.get("responses", {}).items():
