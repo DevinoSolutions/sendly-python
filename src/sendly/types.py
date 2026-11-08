@@ -269,3 +269,62 @@ CampaignRetryFailedV1 = JSONDict
 
 WorkflowGraphV1 = JSONDict
 WorkflowStateChangeV1 = JSONDict
+
+# ---------- Activity feed, audit log and inbox (legacy envelope) ----------
+#
+# These listings pre-date the /api/v1 cursor envelope and keep the legacy one, so
+# the SDK hands back the unwrapped page: ``{data, cursor, hasMore}`` for the
+# activity feed, audit log and list members, ``{items, nextCursor}`` for the inbox.
+
+#: One page of the project's activity feed: ``{data, cursor, hasMore}``.
+ActivityPage = JSONDict
+#: ``{count, minutes}`` -- how much happened in the last few minutes.
+ActivityCount = JSONDict
+#: Activity grouped by type over a period.
+ActivityStats = JSONDict
+#: ``{activities}`` -- sends and workflow steps that are due soon.
+UpcomingActivity = JSONDict
+#: ``{data, total, cursor, hasMore}`` -- one page of who changed what, newest first.
+AuditLogPage = JSONDict
+#: One page of conversations across every mailbox: ``{items, nextCursor}``.
+InboxConversationPage = JSONDict
+#: The most frequent events in a period, most frequent first: a bare list, not a page.
+TopEventList = list[JSONDict]
+
+# ---------- Key-callable operations added with the 2026-11 contract re-sync ----------
+
+#: ``{status: "queued"}`` or ``{message}`` -- work the API accepted and will do in the background.
+QueuedResult = JSONDict
+#: A single-use ``/go/`` link a person opens, with ``expires_in`` and ``instruction``.
+DownloadLink = JSONDict
+ContactFieldList = JSONDict
+ContactFieldUsage = JSONDict
+ContactFieldValues = JSONDict
+ContactLookupResult = JSONDict
+ContactImportAccepted = JSONDict
+DomainConnectStatus = JSONDict
+DomainWarmupStatus = JSONDict
+EventUsage = JSONDict
+ListMemberPage = JSONDict
+ConversationContact = JSONDict
+SegmentMembersResult = JSONDict
+TemplateVersionList = JSONDict
+TemplateUsage = JSONDict
+WebhookCallRecord = JSONDict
+WebhookReplayResult = JSONDict
+ProjectSecurity = JSONDict
+ProjectSetupState = JSONDict
+ImageUpload = JSONDict
+BillingStatus = JSONDict
+PlanList = JSONDict
+ConnectionsStatus = JSONDict
+ConnectLinks = JSONDict
+SupportTicketList = JSONDict
+SupportTicketCreated = JSONDict
+WorkflowFieldList = JSONDict
+ConversionGoal = JSONDict
+ConversionGoalList = JSONDict
+WorkflowStep = JSONDict
+WorkflowTransition = JSONDict
+WorkflowVersionList = JSONDict
+WorkflowExecutionDetail = JSONDict

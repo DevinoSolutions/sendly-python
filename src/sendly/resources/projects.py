@@ -4,9 +4,15 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from sendly.resources._helpers import encode_path_segment
+
 if TYPE_CHECKING:
     from sendly.client import Sendly
-    from sendly.types import ProjectRecordV1
+    from sendly.types import (
+        ProjectRecordV1,
+        ProjectSecurity,
+        ProjectSetupState,
+    )
 
 
 class ProjectsResource:
@@ -31,3 +37,25 @@ class ProjectsResource:
         """
         response: ProjectRecordV1 = self._client.request(method="GET", path="/api/v1/projects")
         return response
+
+    def get_security(self, id: str) -> ProjectSecurity:
+        """The project's sending health and security status, including any
+        suspension. Needs ``projects:read``. Legacy ``{success, data}`` dialect,
+        unwrapped by the SDK.
+        """
+        envelope = self._client.request(
+            method="GET", path=f"/api/projects/{encode_path_segment(id)}/security"
+        )
+        security: ProjectSecurity = self._client.unwrap(envelope)
+        return security
+
+    def get_setup_state(self, id: str) -> ProjectSetupState:
+        """Which onboarding steps the project has finished: ``hasSubscription``,
+        ``hasVerifiedDomain``, ``contactCount``, ``lastCampaignSentAt`` and
+        ``hasEnabledWorkflow``. Needs ``projects:read``.
+        """
+        envelope = self._client.request(
+            method="GET", path=f"/api/projects/{encode_path_segment(id)}/setup-state"
+        )
+        state: ProjectSetupState = self._client.unwrap(envelope)
+        return state

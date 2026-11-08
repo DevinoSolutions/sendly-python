@@ -209,26 +209,33 @@ speaks the legacy one — see [Both dialects, one client](#both-dialects-one-cli
 
 | `sendly.*` | Methods |
 | --- | --- |
-| `emails` | `send`, `send_legacy`, `send_test`, `batch`, `list`, `get`, `cancel_schedule` |
-| `contacts` | `create`, `upsert`, `bulk_create`, `bulk_delete`, `list`, `get`, `update`, `delete`, `list_v1`, `iter_list_v1`, `create_v1`, `get_v1`, `update_v1`, `delete_v1`, `topic_preferences` |
-| `lists` | `subscribe`, `unsubscribe`, `list_v1`, `iter_list_v1`, `create_v1`, `get_v1`, `update_v1`, `delete_v1`, `start_validation_run` |
+| `emails` | `send`, `send_legacy`, `send_test`, `batch`, `list`, `get`, `cancel_schedule`, `reschedule` |
+| `contacts` | `create`, `upsert`, `bulk_create`, `bulk_delete`, `list`, `get`, `update`, `delete`, `list_v1`, `iter_list_v1`, `create_v1`, `get_v1`, `update_v1`, `delete_v1`, `topic_preferences`, `queue_bulk_delete`, `queue_bulk_purge`, `queue_bulk_subscribe`, `queue_bulk_unsubscribe`, `export_link`, `list_fields`, `get_field_usage`, `list_field_values`, `delete_field`, `import_csv`, `lookup`, `purge` |
+| `lists` | `subscribe`, `unsubscribe`, `list_v1`, `iter_list_v1`, `create_v1`, `get_v1`, `update_v1`, `delete_v1`, `start_validation_run`, `list_members`, `iter_list_members` |
 | `topics` | `list`, `iter_list`, `create`, `get`, `update`, `set_subscription` |
-| `templates` | `create`, `list`, `get`, `update`, `delete`, `list_v1`, `iter_list_v1`, `create_v1`, `get_v1`, `update_v1`, `delete_v1` |
+| `templates` | `create`, `list`, `get`, `update`, `delete`, `list_v1`, `iter_list_v1`, `create_v1`, `get_v1`, `update_v1`, `delete_v1`, `duplicate`, `get_usage`, `list_versions`, `revert_version` |
 | `snippets` | `create`, `list`, `get`, `update`, `delete` |
-| `domains` | `create`, `list`, `get`, `verify`, `get_verification`, `start_setup`, `assign_stream`, `delete`, `list_v1`, `iter_list_v1`, `create_v1`, `get_v1`, `verify_v1`, `delete_v1` |
-| `webhooks` | `create`, `list`, `get`, `update`, `delete`, `rotate_secret`, `list_calls`, `list_v1`, `iter_list_v1`, `create_v1`, `get_v1`, `update_v1`, `delete_v1`, `rotate_secret_v1` |
+| `domains` | `create`, `list`, `get`, `verify`, `get_verification`, `start_setup`, `assign_stream`, `delete`, `list_v1`, `iter_list_v1`, `create_v1`, `get_v1`, `verify_v1`, `delete_v1`, `get_connect_status`, `reverify_connection`, `get_warmup`, `manage_warmup` |
+| `webhooks` | `create`, `list`, `get`, `update`, `delete`, `rotate_secret`, `list_calls`, `list_v1`, `iter_list_v1`, `create_v1`, `get_v1`, `update_v1`, `delete_v1`, `rotate_secret_v1`, `retry_call`, `replay_failed`, `test` |
 | `suppression` | `add`, `list`, `get`, `remove`, `list_v1`, `iter_list_v1`, `create_v1`, `get_v1`, `delete_v1` |
-| `events` | `track`, `record`, `list`, `iter_list`, `list_names`, `stats` |
-| `campaigns` | `list`, `iter_list`, `create`, `get`, `update`, `delete`, `send`, `cancel`, `pause`, `resume`, `stats`, `list_failures`, `iter_list_failures`, `retry_failed` |
-| `segments` | `list`, `iter_list`, `create`, `get`, `update`, `delete`, `list_contacts`, `iter_list_contacts` |
-| `workflows` | `list`, `iter_list`, `create`, `get`, `update`, `delete`, `list_executions`, `iter_list_executions`, `start_execution`, `cancel_execution`, `stats`, `get_graph`, `replace_graph`, `clone`, `pause`, `resume` |
-| `mailboxes` | `list`, `get`, `list_app_passwords`, `send_message`, `draft_message` |
+| `events` | `track`, `record`, `list`, `iter_list`, `list_names`, `stats`, `list_for_contact`, `get_usage`, `delete` |
+| `campaigns` | `list`, `iter_list`, `create`, `get`, `update`, `delete`, `send`, `cancel`, `pause`, `resume`, `stats`, `list_failures`, `iter_list_failures`, `retry_failed`, `duplicate`, `send_test` |
+| `segments` | `list`, `iter_list`, `create`, `get`, `update`, `delete`, `list_contacts`, `iter_list_contacts`, `compute`, `refresh`, `add_members`, `remove_members` |
+| `workflows` | `list`, `iter_list`, `create`, `get`, `update`, `delete`, `list_executions`, `iter_list_executions`, `start_execution`, `cancel_execution`, `stats`, `get_graph`, `replace_graph`, `clone`, `pause`, `resume`, `list_fields`, `list_conversion_goals`, `create_conversion_goal`, `delete_conversion_goal`, `get_execution`, `cancel_all_executions`, `add_step`, `update_step`, `delete_step`, `create_transition`, `delete_transition`, `list_versions`, `revert_version` |
+| `mailboxes` | `list`, `get`, `list_app_passwords`, `send_message`, `draft_message`, `delete_conversation`, `get_conversation_contact`, `set_conversation_spam`, `set_conversation_status` |
 | `validation` | `validate_emails`, `get_run`, `list_results`, `iter_list_results` |
 | `deliverability` | `diagnose`, `list_domain_stats`, `iter_list_domain_stats`, `list_dmarc_reports`, `iter_list_dmarc_reports` |
-| `analytics` | `timeseries`, `campaigns`, `top_campaigns` |
+| `analytics` | `timeseries`, `campaigns`, `top_campaigns`, `top_events` |
 | `usage` | `get` |
-| `projects` | `get` |
+| `projects` | `get`, `get_security`, `get_setup_state` |
 | `verify` | `email` |
+| `activity` | `list`, `iter_list`, `recent_count`, `stats`, `upcoming` |
+| `audit_log` | `list`, `iter_list` |
+| `inbox` | `list_conversations`, `iter_list_conversations` |
+| `uploads` | `image` |
+| `billing` | `get`, `list_plans` |
+| `connections` | `list`, `create_links` |
+| `support` | `list_tickets`, `create_ticket` |
 
 ## Usage by resource
 
@@ -889,6 +896,34 @@ Turning `double_opt_in` on does not make Sendly send anything — it only change
 `confirmToken` your application delivers. `member_count` counts memberships in
 *any* status, `PENDING` and `UNSUBSCRIBED` included, so it is not the size of
 the audience a campaign would reach.
+
+## Activity, audit log, inbox, uploads, billing, connections and support
+
+These sit beside the resources above and are all callable with an API key. The
+activity feed, audit log, inbox and list members are legacy `/api/*` listings, so
+they page with `cursor` and answer `{data, cursor, hasMore}` (the inbox answers
+`{items, nextCursor}`) rather than the `after` / `next_cursor` pair of `/api/v1`;
+the `iter_*` methods walk whichever one the listing uses.
+
+```python
+for item in sendly.activity.iter_list({"types": "email.bounced", "limit": 100}):
+    print(item)
+
+sendly.audit_log.list({"action": "contact."})
+for conversation in sendly.inbox.iter_list_conversations({"status": "open"}):
+    print(conversation["mailbox"]["address"], conversation["subject"])
+
+sendly.uploads.image(open("logo.png", "rb").read(), filename="logo.png", content_type="image/png")
+sendly.contacts.import_csv("email,plan\na@example.com,pro\n")  # queued; the CSV is multipart
+
+sendly.billing.get()
+sendly.support.create_ticket({"subject": "Bounce spike", "body": "...", "wantsReply": False})
+```
+
+Two things to know. `contacts.export_link` returns a one-time link a person opens; the
+SDK never downloads the file. And the bulk operations (`contacts.queue_bulk_*`,
+`contacts.delete_field`, `segments.compute`) answer 202: the work runs in the
+background, so the response confirms it was queued rather than reporting a count.
 
 ## The v1 API
 

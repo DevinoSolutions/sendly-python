@@ -130,3 +130,17 @@ class EmailsResource:
             method="DELETE", path=f"/api/emails/{encode_path_segment(id)}/schedule"
         )
         return response
+
+    def reschedule(self, id: str, body: Body) -> EmailResponse:
+        """Move a still-PENDING email to a new send time.
+
+        ``body`` is ``{"scheduledAt": "<ISO 8601>"}``, or ``{"scheduledAt": None}``
+        to send it now. Needs ``emails:send``. Answers 409 ``EMAIL_NOT_RESCHEDULABLE``
+        if the email has already left PENDING, or if it changed while the request ran;
+        in the latter case fetch it again and retry. Returns the updated email.
+        """
+        envelope = self._client.request(
+            method="PATCH", path=f"/api/emails/{encode_path_segment(id)}", body=body
+        )
+        email: EmailResponse = self._client.unwrap(envelope)
+        return email

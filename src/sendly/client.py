@@ -33,21 +33,28 @@ from sendly.errors import (
     error_from_response,
     is_problem_document,
 )
+from sendly.resources.activity import ActivityResource
 from sendly.resources.analytics import AnalyticsResource
+from sendly.resources.audit_log import AuditLogResource
+from sendly.resources.billing import BillingResource
 from sendly.resources.campaigns import CampaignsResource
+from sendly.resources.connections import ConnectionsResource
 from sendly.resources.contacts import ContactsResource
 from sendly.resources.deliverability import DeliverabilityResource
 from sendly.resources.domains import DomainsResource
 from sendly.resources.emails import EmailsResource
 from sendly.resources.events import EventsResource
+from sendly.resources.inbox import InboxResource
 from sendly.resources.lists import ListsResource
 from sendly.resources.mailboxes import MailboxesResource
 from sendly.resources.projects import ProjectsResource
 from sendly.resources.segments import SegmentsResource
 from sendly.resources.snippets import SnippetsResource
+from sendly.resources.support import SupportResource
 from sendly.resources.suppression import SuppressionResource
 from sendly.resources.templates import TemplatesResource
 from sendly.resources.topics import TopicsResource
+from sendly.resources.uploads import UploadsResource
 from sendly.resources.usage import UsageResource
 from sendly.resources.validation import ValidationResource
 from sendly.resources.verify import VerifyResource
@@ -87,7 +94,10 @@ class Sendly:
     calls: ``emails``, ``contacts``, ``events``, ``domains``, ``templates``,
     ``verify``, ``webhooks``, ``suppression`` and ``lists`` on the legacy
     surface, plus ``campaigns``, ``segments``, ``workflows``, ``analytics`` and
-    ``usage`` on ``/api/v1``.
+    ``usage`` on ``/api/v1``. ``mailboxes``, ``snippets``, ``projects``, ``topics``,
+    ``validation`` and ``deliverability`` complete the resource set, alongside
+    ``activity``, ``audit_log``, ``inbox``, ``uploads``, ``billing``,
+    ``connections`` and ``support``.
 
     Args:
         api_key: Project API key (``sk_*`` for full access, ``pk_*`` for
@@ -156,6 +166,16 @@ class Sendly:
         self.topics = TopicsResource(self)
         self.validation = ValidationResource(self)
         self.deliverability = DeliverabilityResource(self)
+        # Dashboard-and-agent surface a key may call: the activity feed, audit
+        # log, cross-mailbox inbox, uploads, and the account's billing,
+        # connections and support operations.
+        self.activity = ActivityResource(self)
+        self.audit_log = AuditLogResource(self)
+        self.inbox = InboxResource(self)
+        self.uploads = UploadsResource(self)
+        self.billing = BillingResource(self)
+        self.connections = ConnectionsResource(self)
+        self.support = SupportResource(self)
 
     def request(
         self,
@@ -166,6 +186,7 @@ class Sendly:
         query: Query | None = None,
         headers: Mapping[str, str] | None = None,
         no_content: bool = False,
+        files: Mapping[str, tuple[str, bytes, str]] | None = None,
     ) -> Any:
         """Low-level request helper.
 
@@ -174,8 +195,15 @@ class Sendly:
         response (the ``{success, data}`` envelope), raw text for a non-JSON
         success body, or ``None`` for 204 / ``no_content``. Errors are raised as
         :class:`SendlyError` subclasses based on status.
+
+        ``files`` sends a ``multipart/form-data`` body instead of JSON: each key
+        is a form field name and each value a ``(filename, content, content_type)``
+        triple. It is for the two upload routes (``contacts.import_csv`` and
+        ``uploads.image``) and cannot be combined with ``body``.
         """
-        response = self._send(method=method, path=path, body=body, query=query, headers=headers)
+        response = self._send(
+            method=method, path=path, body=body, query=query, headers=headers, files=files
+        )
 
         # 204 No Content or caller-forced no-content (DELETE endpoints, which
         # now respond 200 with an id body the SDK intentionally discards).
@@ -241,6 +269,7 @@ class Sendly:
         body: Body | None = None,
         query: Query | None = None,
         headers: Mapping[str, str] | None = None,
+        files: Mapping[str, tuple[str, bytes, str]] | None = None,
     ) -> httpx.Response:
         """Issue the request; errors and parsing are the caller's."""
         url = self._build_url(path, query)
@@ -252,16 +281,23 @@ class Sendly:
             **(dict(headers) if headers else {}),
         }
 
+        if files is not None and body is not None:
+            raise SendlyError(
+                0, "invalid_options", "Sendly: a request cannot carry both `body` and `files`."
+            )
+
         content: str | None = None
         if body is not None:
             request_headers["Content-Type"] = "application/json"
             content = json.dumps(body)
 
         try:
+            # For multipart, httpx writes the Content-Type itself (it owns the boundary).
             return self._client.request(
                 method,
                 url,
                 content=content,
+                files=dict(files) if files is not None else None,
                 headers=request_headers,
                 timeout=self._timeout,
             )

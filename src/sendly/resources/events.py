@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from sendly.resources._helpers import encode_path_segment
 from sendly.resources._pagination import iterate_cursor
 
 if TYPE_CHECKING:
@@ -16,6 +17,7 @@ if TYPE_CHECKING:
         EventNameList,
         EventRecord,
         EventStats,
+        EventUsage,
         JSONDict,
         Query,
         TrackEventData,
@@ -98,3 +100,38 @@ class EventsResource:
             method="GET", path="/api/v1/events/stats", query=query
         )
         return response
+
+    def list_for_contact(self, contact_id: str, query: Query | None = None) -> JSONDict:
+        """The events recorded for one contact, newest first: ``{events}``.
+
+        ``query`` takes ``limit`` (default 20, at most 100). Not cursor-paginated.
+        Needs ``events:read``. Speaks the legacy ``{success, data}`` dialect, which
+        the SDK unwraps.
+        """
+        envelope = self._client.request(
+            method="GET",
+            path=f"/api/events/contact/{encode_path_segment(contact_id)}",
+            query=query,
+        )
+        events: JSONDict = self._client.unwrap(envelope)
+        return events
+
+    def get_usage(self, event_name: str) -> EventUsage:
+        """Which workflows and segments use an event name. Needs ``events:read``."""
+        envelope = self._client.request(
+            method="GET", path=f"/api/events/{encode_path_segment(event_name)}/usage"
+        )
+        usage: EventUsage = self._client.unwrap(envelope)
+        return usage
+
+    def delete(self, event_name: str) -> JSONDict:
+        """Delete an event name and EVERY event recorded under it. Needs ``events:write``.
+
+        Returns ``{deletedCount}``. Workflows and segments that use the name stop
+        matching, so check :meth:`get_usage` first.
+        """
+        envelope = self._client.request(
+            method="DELETE", path=f"/api/events/{encode_path_segment(event_name)}"
+        )
+        deleted: JSONDict = self._client.unwrap(envelope)
+        return deleted

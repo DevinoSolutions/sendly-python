@@ -50,3 +50,39 @@ def iterate_cursor(
         if not cursor or cursor == params.get("after"):
             return
         params = {**params, "after": cursor}
+
+
+def iterate_legacy_cursor(
+    fetch: Callable[[dict[str, Any]], Any],
+    query: Query | None = None,
+    *,
+    items_key: str = "data",
+    next_key: str = "cursor",
+) -> Iterator[JSONDict]:
+    """Yield every item across the pages of a legacy ``/api/*`` cursor listing.
+
+    The dashboard-era listings do not share :func:`iterate_cursor`'s
+    ``{data, has_more, next_cursor}`` envelope, and they do not all agree with each
+    other. The activity feed, the audit log and list members answer
+    ``{data, cursor, hasMore}``; the cross-mailbox inbox answers
+    ``{items, nextCursor}``. Both send the cursor back as the ``cursor`` query
+    parameter, so ``items_key`` and ``next_key`` name where THIS listing keeps the
+    page and the next cursor.
+
+    Iteration ends when a page carries no next cursor, no item list, or hands back
+    the very cursor it was given -- a stuck page ends the walk instead of looping.
+    The caller's filters are held fixed for the whole walk.
+    """
+    params = dict(query or {})
+    while True:
+        page = fetch(params)
+        if not isinstance(page, dict):
+            return
+        items = page.get(items_key)
+        if not isinstance(items, list):
+            return
+        yield from items
+        cursor = page.get(next_key)
+        if not cursor or cursor == params.get("cursor"):
+            return
+        params = {**params, "cursor": cursor}

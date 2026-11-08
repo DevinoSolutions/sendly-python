@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from sendly.resources._helpers import encode_path_segment
-from sendly.resources._pagination import iterate_cursor
+from sendly.resources._pagination import iterate_cursor, iterate_legacy_cursor
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -17,6 +17,7 @@ if TYPE_CHECKING:
         JSONDict,
         ListDeletedV1,
         ListListV1,
+        ListMemberPage,
         ListSubscribeData,
         ListUnsubscribeData,
         ListV1,
@@ -150,3 +151,22 @@ class ListsResource:
             method="POST", path=f"/api/v1/lists/{encode_path_segment(id)}/validation-runs"
         )
         return response
+
+    def list_members(self, id: str, query: Query | None = None) -> ListMemberPage:
+        """One page of the contacts on a list. Needs ``lists:read``.
+
+        ``query`` takes ``status`` (a membership status such as ``SUBSCRIBED``),
+        ``limit`` (default 20, at most 100) and ``cursor``. This is a legacy
+        ``/api/lists`` route, so the page is ``{data, total, cursor, hasMore}`` and
+        the cursor goes back as ``cursor`` -- not the ``after`` / ``next_cursor``
+        pair of the ``_v1`` methods. ``total`` is counted on the first page only.
+        """
+        envelope = self._client.request(
+            method="GET", path=f"/api/lists/{encode_path_segment(id)}/members", query=query
+        )
+        page: ListMemberPage = self._client.unwrap(envelope)
+        return page
+
+    def iter_list_members(self, id: str, query: Query | None = None) -> Iterator[JSONDict]:
+        """Iterate every membership on a list across pages, following the cursor for you."""
+        return iterate_legacy_cursor(lambda params: self.list_members(id, params), query)

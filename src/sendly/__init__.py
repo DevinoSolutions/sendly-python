@@ -30,21 +30,28 @@ from sendly.errors import (
     SendlyServerError,
     SendlyValidationError,
 )
+from sendly.resources.activity import ActivityResource
 from sendly.resources.analytics import AnalyticsResource
+from sendly.resources.audit_log import AuditLogResource
+from sendly.resources.billing import BillingResource
 from sendly.resources.campaigns import CampaignsResource
+from sendly.resources.connections import ConnectionsResource
 from sendly.resources.contacts import ContactsResource
 from sendly.resources.deliverability import DeliverabilityResource
 from sendly.resources.domains import DomainsResource
 from sendly.resources.emails import EmailsResource
 from sendly.resources.events import EventsResource
+from sendly.resources.inbox import InboxResource
 from sendly.resources.lists import ListsResource
 from sendly.resources.mailboxes import MailboxesResource
 from sendly.resources.projects import ProjectsResource
 from sendly.resources.segments import SegmentsResource
 from sendly.resources.snippets import SnippetsResource
+from sendly.resources.support import SupportResource
 from sendly.resources.suppression import SuppressionResource
 from sendly.resources.templates import TemplatesResource
 from sendly.resources.topics import TopicsResource
+from sendly.resources.uploads import UploadsResource
 from sendly.resources.usage import UsageResource
 from sendly.resources.validation import ValidationResource
 from sendly.resources.verify import VerifyResource
@@ -59,13 +66,18 @@ __all__ = [
     "DEFAULT_BASE_URL",
     "DEFAULT_TOLERANCE_MS",
     "SDK_VERSION",
+    "ActivityResource",
     "AnalyticsResource",
+    "AuditLogResource",
+    "BillingResource",
     "CampaignsResource",
+    "ConnectionsResource",
     "ContactsResource",
     "DeliverabilityResource",
     "DomainsResource",
     "EmailsResource",
     "EventsResource",
+    "InboxResource",
     "ListsResource",
     "MailboxesResource",
     "ProjectsResource",
@@ -82,9 +94,11 @@ __all__ = [
     "SendlyServerError",
     "SendlyValidationError",
     "SnippetsResource",
+    "SupportResource",
     "SuppressionResource",
     "TemplatesResource",
     "TopicsResource",
+    "UploadsResource",
     "UsageResource",
     "ValidationResource",
     "VerifyResource",

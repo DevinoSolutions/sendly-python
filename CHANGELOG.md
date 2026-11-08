@@ -5,6 +5,24 @@ All notable changes to `sendly-python` are documented here. This project adheres
 
 ## [Unreleased]
 
+### Added
+
+- **Every key-callable operation in the released contract now has a method.** The 1.3.0
+  re-sync listed 67 operations that accept `ApiKeyAuth` but had no SDK method; all 67 are
+  implemented and `NOT_YET_IMPLEMENTED` is empty. New resources: `activity`, `audit_log`,
+  `inbox`, `uploads`, `billing`, `connections` and `support`. New methods on `analytics`,
+  `campaigns`, `contacts` (bulk queueing, custom fields, CSV import, lookup, export link,
+  erasure), `domains` (DoDomain status and warm-up), `emails` (`reschedule`), `events`, `lists`
+  (`list_members`), `mailboxes` (conversation delete, contact timeline, spam, status), `projects`,
+  `segments` (compute, refresh, members), `templates` (duplicate, usage, versions), `webhooks`
+  (retry, replay, test) and `workflows` (the step and transition editor, conversion goals,
+  versions, execution detail).
+- `iter_list` on `activity` and `audit_log`, `iter_list_conversations` on `inbox` and
+  `iter_list_members` on `lists` walk the legacy cursor (`cursor` in, `{data, cursor, hasMore}`
+  or `{items, nextCursor}` out), which differs from the `after` / `next_cursor` pair of `/api/v1`.
+- `Sendly.request` accepts `files=` to send `multipart/form-data`, used by
+  `contacts.import_csv` and `uploads.image`.
+
 ## [1.3.0] - 2026-11-07
 
 ### Added

@@ -13,6 +13,7 @@ if TYPE_CHECKING:
     from sendly.client import Sendly
     from sendly.types import (
         Body,
+        DomainConnectStatus,
         DomainDeletedV1,
         DomainListResponse,
         DomainListV1,
@@ -22,6 +23,7 @@ if TYPE_CHECKING:
         DomainSetupSession,
         DomainV1,
         DomainVerificationStatus,
+        DomainWarmupStatus,
         JSONDict,
         Query,
     )
@@ -266,3 +268,57 @@ class DomainsResource:
             method="GET", path=f"/api/v1/domains/{encode_path_segment(id)}/logo/readiness"
         )
         return response
+
+    def get_connect_status(self, id: str) -> DomainConnectStatus:
+        """Whether the domain's DNS provider supports one-click setup through
+        DoDomain, and which method it would use. Needs ``domains:read``.
+
+        Stateless and free on every plan (unlike :meth:`start_setup`, which mints a
+        metered session), so it is safe to call just to decide what to offer.
+        The answer is cached for 10 minutes per domain.
+        """
+        envelope = self._client.request(
+            method="GET", path=f"/api/domains/{encode_path_segment(id)}/dodomain-check"
+        )
+        status: DomainConnectStatus = self._client.unwrap(envelope)
+        return status
+
+    def reverify_connection(self, id: str) -> JSONDict:
+        """Ask DoDomain to re-check the domain's DNS now. Needs ``domains:write``.
+
+        Answers 202 ``{status: "accepted"}`` with NO verdict: the re-check runs at
+        DoDomain and its answer arrives as a ``connection.verified`` or
+        ``connection.failed`` webhook a few minutes later. A second call inside the
+        60-second cooldown is refused with 429.
+        """
+        envelope = self._client.request(
+            method="POST", path=f"/api/domains/{encode_path_segment(id)}/dodomain-reverify"
+        )
+        accepted: JSONDict = self._client.unwrap(envelope)
+        return accepted
+
+    def get_warmup(self, id: str) -> DomainWarmupStatus:
+        """Where a new domain is in its warm-up ramp and how much it has sent today.
+
+        Needs ``domains:read``. Its own call, not a field on :meth:`get`, because
+        today's counter moves with every send.
+        """
+        envelope = self._client.request(
+            method="GET", path=f"/api/domains/{encode_path_segment(id)}/warmup"
+        )
+        status: DomainWarmupStatus = self._client.unwrap(envelope)
+        return status
+
+    def manage_warmup(self, id: str, body: Body) -> DomainWarmupStatus:
+        """End a domain's warm-up early or start it again from day one.
+
+        ``body`` is ``{"action": "finish"}`` or ``{"action": "restart"}``. Needs
+        ``domains:write``. Finishing early on a domain that has never sent risks its
+        reputation; the ramp exists to prevent exactly that. Returns the new
+        warm-up status.
+        """
+        envelope = self._client.request(
+            method="POST", path=f"/api/domains/{encode_path_segment(id)}/warmup", body=body
+        )
+        status: DomainWarmupStatus = self._client.unwrap(envelope)
+        return status

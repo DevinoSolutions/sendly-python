@@ -16,8 +16,10 @@ if TYPE_CHECKING:
         ContactList,
         JSONDict,
         Query,
+        QueuedResult,
         SegmentDeleted,
         SegmentList,
+        SegmentMembersResult,
         SegmentRecord,
     )
 
@@ -104,3 +106,50 @@ class SegmentsResource:
     def iter_list_contacts(self, id: str, query: Query | None = None) -> Iterator[JSONDict]:
         """Iterate every contact in a segment across pages."""
         return iterate_cursor(lambda params: self.list_contacts(id, params), query)
+
+    # Legacy ``/api/segments`` operations. They speak the ``{success, data}``
+    # dialect, which the SDK unwraps. All need ``segments:write``.
+
+    def compute(self, id: str) -> QueuedResult:
+        """Queue a recalculation of which contacts match the segment's rules.
+
+        Answers 202 ``{status: "queued"}``; the count updates when the job ends.
+        """
+        envelope = self._client.request(
+            method="POST", path=f"/api/segments/{encode_path_segment(id)}/compute"
+        )
+        queued: QueuedResult = self._client.unwrap(envelope)
+        return queued
+
+    def refresh(self, id: str) -> JSONDict:
+        """Recount the segment's members now and answer ``{memberCount}``."""
+        envelope = self._client.request(
+            method="POST", path=f"/api/segments/{encode_path_segment(id)}/refresh"
+        )
+        refreshed: JSONDict = self._client.unwrap(envelope)
+        return refreshed
+
+    def add_members(self, id: str, body: Body) -> SegmentMembersResult:
+        """Add addresses to a STATIC segment.
+
+        ``body`` is ``{"emails": [...]}`` (up to 100,000), plus ``createMissing``
+        to create contacts that do not exist yet, with ``subscribed`` as their
+        status. Past 1000 addresses the change runs as a background job.
+        """
+        envelope = self._client.request(
+            method="POST", path=f"/api/segments/{encode_path_segment(id)}/members", body=body
+        )
+        result: SegmentMembersResult = self._client.unwrap(envelope)
+        return result
+
+    def remove_members(self, id: str, body: Body) -> SegmentMembersResult:
+        """Remove addresses from a STATIC segment; the contacts stay in the project.
+
+        ``body`` is ``{"emails": [...]}`` (up to 100,000). Sent as a ``DELETE`` that
+        carries a JSON body.
+        """
+        envelope = self._client.request(
+            method="DELETE", path=f"/api/segments/{encode_path_segment(id)}/members", body=body
+        )
+        result: SegmentMembersResult = self._client.unwrap(envelope)
+        return result

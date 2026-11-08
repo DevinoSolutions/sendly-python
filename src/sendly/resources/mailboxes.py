@@ -13,6 +13,7 @@ if TYPE_CHECKING:
     from sendly.types import (
         AppPasswordList,
         Body,
+        ConversationContact,
         JSONDict,
         MailboxConversation,
         MailboxConversationPage,
@@ -244,3 +245,74 @@ class MailboxesResource:
                 f"/attachments/{encode_path_segment(attachment_id)}"
             ),
         )
+
+    # Conversation management. Deleting, filing as spam and changing status need
+    # ``mailboxes:write``; the timeline needs ``mailbox-conversations:read``.
+
+    def delete_conversation(self, id: str, conversation_id: str) -> JSONDict:
+        """PERMANENTLY delete a conversation and its messages, from the mail server too.
+
+        Needs ``mailboxes:write``. Cannot be undone.
+        """
+        envelope = self._client.request(
+            method="DELETE",
+            path=(
+                f"/api/mailboxes/{encode_path_segment(id)}"
+                f"/conversations/{encode_path_segment(conversation_id)}"
+            ),
+        )
+        deleted: JSONDict = self._client.unwrap(envelope)
+        return deleted
+
+    def get_conversation_contact(self, id: str, conversation_id: str) -> ConversationContact:
+        """The Sendly contact behind a conversation and their recent email and
+        event timeline: ``{contact, timeline}``.
+
+        ``contact`` is ``None`` (with an empty timeline) when the correspondent is
+        not a contact. Needs the opt-in ``mailbox-conversations:read`` scope (ticked by name
+        when the key was created).
+        """
+        envelope = self._client.request(
+            method="GET",
+            path=(
+                f"/api/mailboxes/{encode_path_segment(id)}"
+                f"/conversations/{encode_path_segment(conversation_id)}/contact"
+            ),
+        )
+        contact: ConversationContact = self._client.unwrap(envelope)
+        return contact
+
+    def set_conversation_spam(self, id: str, conversation_id: str, body: Body) -> JSONDict:
+        """File a conversation as spam, or move it back to the inbox.
+
+        ``body`` is ``{"spam": True}`` or ``{"spam": False}``. Mail clients see the
+        same move. Needs ``mailboxes:write``.
+        """
+        envelope = self._client.request(
+            method="POST",
+            path=(
+                f"/api/mailboxes/{encode_path_segment(id)}"
+                f"/conversations/{encode_path_segment(conversation_id)}/spam"
+            ),
+            body=body,
+        )
+        updated: JSONDict = self._client.unwrap(envelope)
+        return updated
+
+    def set_conversation_status(self, id: str, conversation_id: str, body: Body) -> JSONDict:
+        """Open, snooze or close a conversation, or assign it to a project member.
+
+        ``body`` takes ``status`` (``OPEN``, ``SNOOZED`` or ``CLOSED``) and
+        ``assigneeId`` (a project member's id; ``None`` unassigns). Both are
+        optional. Needs ``mailboxes:write``.
+        """
+        envelope = self._client.request(
+            method="PATCH",
+            path=(
+                f"/api/mailboxes/{encode_path_segment(id)}"
+                f"/conversations/{encode_path_segment(conversation_id)}/status"
+            ),
+            body=body,
+        )
+        updated: JSONDict = self._client.unwrap(envelope)
+        return updated

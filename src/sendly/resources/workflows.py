@@ -13,16 +13,23 @@ if TYPE_CHECKING:
     from sendly.client import Sendly
     from sendly.types import (
         Body,
+        ConversionGoal,
+        ConversionGoalList,
         JSONDict,
         Query,
         WorkflowDeleted,
+        WorkflowExecutionDetail,
         WorkflowExecutionList,
         WorkflowExecutionRecord,
+        WorkflowFieldList,
         WorkflowGraphV1,
         WorkflowList,
         WorkflowRecord,
         WorkflowStateChangeV1,
         WorkflowStats,
+        WorkflowStep,
+        WorkflowTransition,
+        WorkflowVersionList,
     )
 
 
@@ -231,3 +238,153 @@ class WorkflowsResource:
             method="POST", path=f"/api/v1/workflows/{encode_path_segment(id)}/resume"
         )
         return response
+
+    # Legacy ``/api/workflows`` operations: the step-by-step graph editor,
+    # conversion goals, versions and execution control. They speak the
+    # ``{success, data}`` dialect, which the SDK unwraps. Reads need
+    # ``workflows:read``, writes ``workflows:write``.
+
+    def list_fields(self, query: Query | None = None) -> WorkflowFieldList:
+        """The fields a workflow condition can test: contact fields, and an
+        event's properties. ``query`` takes ``eventName``.
+        """
+        envelope = self._client.request(method="GET", path="/api/workflows/fields", query=query)
+        fields: WorkflowFieldList = self._client.unwrap(envelope)
+        return fields
+
+    def list_conversion_goals(self, id: str) -> ConversionGoalList:
+        """The conversion goals a workflow is measured against."""
+        envelope = self._client.request(
+            method="GET", path=f"/api/workflows/{encode_path_segment(id)}/conversion-goals"
+        )
+        goals: ConversionGoalList = self._client.unwrap(envelope)
+        return goals
+
+    def create_conversion_goal(self, id: str, body: Body) -> ConversionGoal:
+        """Count a run as converted when the contact records an event soon after entering.
+
+        ``body`` takes ``name``, ``eventType`` and ``windowDays`` (1-365, the time
+        after entering the workflow within which the event must occur). Answers 201.
+        """
+        envelope = self._client.request(
+            method="POST",
+            path=f"/api/workflows/{encode_path_segment(id)}/conversion-goals",
+            body=body,
+        )
+        goal: ConversionGoal = self._client.unwrap(envelope)
+        return goal
+
+    def delete_conversion_goal(self, id: str, goal_id: str) -> JSONDict:
+        """Remove a conversion goal from a workflow. Returns ``{id}``."""
+        envelope = self._client.request(
+            method="DELETE",
+            path=(
+                f"/api/workflows/{encode_path_segment(id)}"
+                f"/conversion-goals/{encode_path_segment(goal_id)}"
+            ),
+        )
+        deleted: JSONDict = self._client.unwrap(envelope)
+        return deleted
+
+    def get_execution(self, id: str, execution_id: str) -> WorkflowExecutionDetail:
+        """One execution: the steps it ran, when, and how it ended."""
+        envelope = self._client.request(
+            method="GET",
+            path=(
+                f"/api/workflows/{encode_path_segment(id)}"
+                f"/executions/{encode_path_segment(execution_id)}"
+            ),
+        )
+        execution: WorkflowExecutionDetail = self._client.unwrap(envelope)
+        return execution
+
+    def cancel_all_executions(self, id: str) -> JSONDict:
+        """Stop EVERY running execution of a workflow at once."""
+        envelope = self._client.request(
+            method="POST", path=f"/api/workflows/{encode_path_segment(id)}/executions/cancel-all"
+        )
+        result: JSONDict = self._client.unwrap(envelope)
+        return result
+
+    def add_step(self, id: str, body: Body) -> WorkflowStep:
+        """Add a step to a workflow. Answers 201 with the step.
+
+        ``body`` takes ``type``, ``name``, ``position``, ``config``, ``templateId``
+        (required for ``SEND_EMAIL`` steps) and ``autoConnect``, which links the new
+        step after the current last one.
+        """
+        envelope = self._client.request(
+            method="POST", path=f"/api/workflows/{encode_path_segment(id)}/steps", body=body
+        )
+        step: WorkflowStep = self._client.unwrap(envelope)
+        return step
+
+    def update_step(self, id: str, step_id: str, body: Body) -> WorkflowStep:
+        """Edit one step's ``name``, ``config``, ``position`` or ``templateId``."""
+        envelope = self._client.request(
+            method="PATCH",
+            path=f"/api/workflows/{encode_path_segment(id)}/steps/{encode_path_segment(step_id)}",
+            body=body,
+        )
+        step: WorkflowStep = self._client.unwrap(envelope)
+        return step
+
+    def delete_step(self, id: str, step_id: str, query: Query | None = None) -> JSONDict:
+        """Remove a step from a workflow.
+
+        ``query`` takes ``splice``, to reconnect the steps either side of the
+        removed one rather than leaving a gap.
+        """
+        envelope = self._client.request(
+            method="DELETE",
+            path=f"/api/workflows/{encode_path_segment(id)}/steps/{encode_path_segment(step_id)}",
+            query=query,
+        )
+        deleted: JSONDict = self._client.unwrap(envelope)
+        return deleted
+
+    def create_transition(self, id: str, body: Body) -> WorkflowTransition:
+        """Connect two steps. Answers 201 with the transition.
+
+        ``body`` takes ``fromStepId``, ``toStepId``, ``condition`` (from a
+        ``CONDITION`` step it picks the branch, e.g. ``{"branch": "yes"}``) and
+        ``priority`` (lower is followed first).
+        """
+        envelope = self._client.request(
+            method="POST",
+            path=f"/api/workflows/{encode_path_segment(id)}/transitions",
+            body=body,
+        )
+        transition: WorkflowTransition = self._client.unwrap(envelope)
+        return transition
+
+    def delete_transition(self, id: str, transition_id: str) -> JSONDict:
+        """Remove a connection between two steps. Returns ``{id}``."""
+        envelope = self._client.request(
+            method="DELETE",
+            path=(
+                f"/api/workflows/{encode_path_segment(id)}"
+                f"/transitions/{encode_path_segment(transition_id)}"
+            ),
+        )
+        deleted: JSONDict = self._client.unwrap(envelope)
+        return deleted
+
+    def list_versions(self, id: str) -> WorkflowVersionList:
+        """A workflow's saved versions. Every structural change saves one."""
+        envelope = self._client.request(
+            method="GET", path=f"/api/workflows/{encode_path_segment(id)}/versions"
+        )
+        versions: WorkflowVersionList = self._client.unwrap(envelope)
+        return versions
+
+    def revert_version(self, id: str, version: int) -> JSONDict:
+        """Restore a workflow's steps and transitions to an earlier ``version``
+        from :meth:`list_versions`. Returns ``{version}``.
+        """
+        envelope = self._client.request(
+            method="POST",
+            path=f"/api/workflows/{encode_path_segment(id)}/versions/{encode_path_segment(str(version))}/revert",
+        )
+        result: JSONDict = self._client.unwrap(envelope)
+        return result
