@@ -914,9 +914,7 @@ for conversation in sendly.inbox.iter_list_conversations({"status": "open"}):
     print(conversation["mailbox"]["address"], conversation["subject"])
 
 sendly.uploads.image(open("logo.png", "rb").read(), filename="logo.png", content_type="image/png")
-sendly.contacts.import_csv("email,plan
-a@example.com,pro
-")  # queued; the CSV is multipart
+sendly.contacts.import_csv("email,plan\na@example.com,pro\n")  # queued; the CSV is multipart
 
 sendly.billing.get()
 sendly.support.create_ticket({"subject": "Bounce spike", "body": "...", "wantsReply": False})

@@ -224,7 +224,7 @@ LEGACY_CURSOR_PAGE = frozenset({"items", "nextCursor"})
 #: The page shape is ``{data, cursor, hasMore}`` (activity feed, audit log, list
 #: members) or ``{items, nextCursor}`` (the cross-mailbox inbox); the SDK's
 #: ``iter_*`` companions walk exactly those. Listed by hand because the contract
-#: does not declare them; the pagination tests in ``test_activity.py`` and friends
+#: does not declare them; the pagination tests in ``tests/test_key_callable_operations.py``
 #: pin the shapes against the route.
 FREE_FORM_CURSOR_LISTS = frozenset(
     {

@@ -310,7 +310,7 @@ class ContactsResource:
 
         The first row is the header and must include an ``email`` column; other
         columns become custom fields. Sent as ``multipart/form-data`` under the
-        field ``file``, and ``filename`` must end in ``.csv``. An unimportable file
+        field ``file``, and the part is sent as ``text/csv`` (the API accepts a ``.csv`` filename or that type). An unimportable file
         or one over the plan's row ceiling is refused up front with 400; a good
         one answers 202 and the contacts appear as the background job finishes.
         """

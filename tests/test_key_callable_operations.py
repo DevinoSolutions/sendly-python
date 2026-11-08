@@ -596,8 +596,11 @@ def test_uploads_image_sends_multipart_under_the_field_image():
         json_response(
             200,
             {
-                "success": True,
-                "data": {"url": "https://cdn.example/a.png", "key": "k", "filename": "a.png"},
+                "url": "https://cdn.example/a.png",
+                "key": "k",
+                "filename": "a.png",
+                "contentType": "image/png",
+                "size": 12,
             },
         )
     )
@@ -610,6 +613,19 @@ def test_uploads_image_sends_multipart_under_the_field_image():
     assert b"Content-Type: image/png" in request.content
     assert png in request.content
     assert result["url"] == "https://cdn.example/a.png"
+
+
+def test_uploads_image_guesses_the_type_from_the_filename():
+    rec = Recorder(json_response(200, {"url": "https://cdn.example/logo.png"}))
+    make_client(rec).uploads.image(b"\x89PNGrest", filename="logo.png")
+    assert b"Content-Type: image/png" in rec.request.content
+
+
+def test_uploads_image_refuses_an_unguessable_type_before_sending():
+    rec = Recorder(json_response(200, {}))
+    with pytest.raises(ValueError, match="pass `content_type`"):
+        make_client(rec).uploads.image(b"data", filename="logo.unknownext")
+    assert rec.requests == []
 
 
 def test_a_request_cannot_carry_both_a_json_body_and_files():

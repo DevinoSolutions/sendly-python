@@ -384,7 +384,7 @@ class WorkflowsResource:
         """
         envelope = self._client.request(
             method="POST",
-            path=f"/api/workflows/{encode_path_segment(id)}/versions/{version}/revert",
+            path=f"/api/workflows/{encode_path_segment(id)}/versions/{encode_path_segment(str(version))}/revert",
         )
         result: JSONDict = self._client.unwrap(envelope)
         return result

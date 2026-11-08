@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import mimetypes
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -19,17 +20,24 @@ class UploadsResource:
     def __init__(self, client: Sendly) -> None:
         self._client = client
 
-    def image(
-        self, data: bytes, *, filename: str, content_type: str = "application/octet-stream"
-    ) -> ImageUpload:
+    def image(self, data: bytes, *, filename: str, content_type: str | None = None) -> ImageUpload:
         """Host an image (JPEG, PNG, GIF or WebP) and answer its URL.
 
-        ``data`` is the file's bytes and ``content_type`` its MIME type; the API
-        checks both the type and the file's leading bytes, so a mislabelled file
-        is refused with 400. Sent as ``multipart/form-data`` under the field
+        ``data`` is the file's bytes and ``content_type`` its MIME type. When
+        ``content_type`` is omitted it is guessed from the ``filename`` extension;
+        if it cannot be guessed, :class:`ValueError` is raised rather than sending
+        a type the API would refuse. The API checks both the type and the file's
+        leading bytes, so a mislabelled file is refused with 400. Sent as ``multipart/form-data`` under the field
         ``image``. Returns ``{url, key, filename, contentType, size}``; ``url`` is
         what goes in an email's HTML.
         """
+        if content_type is None:
+            content_type, _encoding = mimetypes.guess_type(filename)
+        if content_type is None:
+            raise ValueError(
+                f"Sendly: cannot guess the image type of {filename!r}; pass `content_type` "
+                "(image/jpeg, image/png, image/gif or image/webp)."
+            )
         envelope = self._client.request(
             method="POST",
             path="/api/uploads/image",

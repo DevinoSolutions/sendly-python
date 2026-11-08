@@ -94,7 +94,10 @@ class Sendly:
     calls: ``emails``, ``contacts``, ``events``, ``domains``, ``templates``,
     ``verify``, ``webhooks``, ``suppression`` and ``lists`` on the legacy
     surface, plus ``campaigns``, ``segments``, ``workflows``, ``analytics`` and
-    ``usage`` on ``/api/v1``.
+    ``usage`` on ``/api/v1``. ``mailboxes``, ``snippets``, ``projects``, ``topics``,
+    ``validation`` and ``deliverability`` complete the resource set, alongside
+    ``activity``, ``audit_log``, ``inbox``, ``uploads``, ``billing``,
+    ``connections`` and ``support``.
 
     Args:
         api_key: Project API key (``sk_*`` for full access, ``pk_*`` for

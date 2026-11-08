@@ -186,7 +186,7 @@ class TemplatesResource:
         """
         envelope = self._client.request(
             method="POST",
-            path=f"/api/templates/{encode_path_segment(id)}/versions/{version}/revert",
+            path=f"/api/templates/{encode_path_segment(id)}/versions/{encode_path_segment(str(version))}/revert",
         )
         record: TemplateRecord = self._client.unwrap(envelope)
         return record
