@@ -27,7 +27,10 @@ class UploadsResource:
         ``content_type`` is omitted it is guessed from the ``filename`` extension;
         if it cannot be guessed, :class:`ValueError` is raised rather than sending
         a type the API would refuse. The API checks both the type and the file's
-        leading bytes, so a mislabelled file is refused with 400. Sent as ``multipart/form-data`` under the field
+        leading bytes, so a mislabelled file is refused with 400.
+        The server's limit is 10 MB (``MAX_IMAGE_UPLOAD_BYTES``); a larger file
+        raises :class:`~sendly.errors.SendlyError` with status 413 and code
+        ``PAYLOAD_TOO_LARGE``. Sent as ``multipart/form-data`` under the field
         ``image``. Returns ``{url, key, filename, contentType, size}``; ``url`` is
         what goes in an email's HTML.
         """
