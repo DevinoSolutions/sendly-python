@@ -663,6 +663,14 @@ def test_uploads_image_maps_extensions_explicitly(filename: str, expected: bytes
     assert expected in rec.request.content
 
 
+@pytest.mark.parametrize("filename", ["logo.svg", "notes.txt", "pic.bmp"])
+def test_uploads_image_refuses_extensions_the_server_would_refuse(filename: str):
+    rec = Recorder(json_response(200, {}))
+    with pytest.raises(ValueError, match="pass `content_type`"):
+        make_client(rec).uploads.image(b"data", filename=filename)
+    assert rec.requests == []
+
+
 def test_uploads_image_refuses_an_unguessable_type_before_sending():
     rec = Recorder(json_response(200, {}))
     with pytest.raises(ValueError, match="pass `content_type`"):

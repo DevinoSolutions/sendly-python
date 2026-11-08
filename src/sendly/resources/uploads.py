@@ -2,14 +2,13 @@
 
 from __future__ import annotations
 
-import mimetypes
 import os
 from typing import TYPE_CHECKING
 
-#: The four image types the API accepts, by extension. Checked before
-#: ``mimetypes`` because that module reads the OS registry on Windows (which maps
-#: ``.png`` to ``image/x-png``, a type the server refuses) and older Pythons do
-#: not know ``.webp``.
+#: The image types the API accepts, by extension. An explicit table rather than
+#: ``mimetypes``: that module reads the OS registry on Windows (which maps ``.png``
+#: to ``image/x-png``, a type the server refuses), older Pythons do not know
+#: ``.webp``, and it happily guesses types the server refuses (``.svg``, ``.bmp``).
 _IMAGE_TYPES = {
     ".jpg": "image/jpeg",
     ".jpeg": "image/jpeg",
@@ -39,7 +38,7 @@ class UploadsResource:
 
         ``data`` is the file's bytes and ``content_type`` its MIME type. When
         ``content_type`` is omitted it is chosen from the ``filename`` extension (``.jpg``, ``.jpeg``,
-        ``.png``, ``.gif``, ``.webp``, case-insensitive, then ``mimetypes``);
+        ``.png``, ``.gif``, ``.webp``, case-insensitive);
         if it cannot be guessed, :class:`ValueError` is raised rather than sending
         a type the API would refuse. The API checks both the type and the file's
         leading bytes, so a mislabelled file is refused with 400.
@@ -51,8 +50,6 @@ class UploadsResource:
         """
         if content_type is None:
             content_type = _IMAGE_TYPES.get(os.path.splitext(filename)[1].lower())
-        if content_type is None:
-            content_type, _encoding = mimetypes.guess_type(filename)
         if content_type is None:
             raise ValueError(
                 f"Sendly: cannot guess the image type of {filename!r}; pass `content_type` "
