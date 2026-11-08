@@ -19,7 +19,9 @@ if TYPE_CHECKING:
         TemplateListResponse,
         TemplateListV1,
         TemplateRecord,
+        TemplateUsage,
         TemplateV1,
+        TemplateVersionList,
     )
 
 
@@ -145,3 +147,46 @@ class TemplatesResource:
             method="DELETE", path=f"/api/v1/templates/{encode_path_segment(id)}"
         )
         return response
+
+    def duplicate(self, id: str) -> TemplateRecord:
+        """Copy a template. The copy gets a new id and a name marked as a copy.
+
+        Needs ``templates:write``; answers 201.
+        """
+        envelope = self._client.request(
+            method="POST", path=f"/api/templates/{encode_path_segment(id)}/duplicate"
+        )
+        record: TemplateRecord = self._client.unwrap(envelope)
+        return record
+
+    def get_usage(self, id: str) -> TemplateUsage:
+        """Which campaigns and workflows use a template. Needs ``templates:read``."""
+        envelope = self._client.request(
+            method="GET", path=f"/api/templates/{encode_path_segment(id)}/usage"
+        )
+        usage: TemplateUsage = self._client.unwrap(envelope)
+        return usage
+
+    def list_versions(self, id: str) -> TemplateVersionList:
+        """A template's saved versions, newest first. Needs ``templates:read``.
+
+        Not paginated.
+        """
+        envelope = self._client.request(
+            method="GET", path=f"/api/templates/{encode_path_segment(id)}/versions"
+        )
+        versions: TemplateVersionList = self._client.unwrap(envelope)
+        return versions
+
+    def revert_version(self, id: str, version: int) -> TemplateRecord:
+        """Restore a template to an earlier ``version`` from :meth:`list_versions`.
+
+        Needs ``templates:write``. The current content is kept as a version
+        first, so a revert can itself be reverted.
+        """
+        envelope = self._client.request(
+            method="POST",
+            path=f"/api/templates/{encode_path_segment(id)}/versions/{version}/revert",
+        )
+        record: TemplateRecord = self._client.unwrap(envelope)
+        return record

@@ -11,6 +11,7 @@ if TYPE_CHECKING:
         CampaignAnalytics,
         Query,
         TopCampaignList,
+        TopEventList,
     )
 
 
@@ -47,3 +48,15 @@ class AnalyticsResource:
             method="GET", path="/api/v1/analytics/top-campaigns", query=query
         )
         return response
+
+    def top_events(self, query: Query | None = None) -> TopEventList:
+        """The most frequent events in the period.
+
+        ``query`` takes ``limit`` (default 5, at most 20), ``startDate`` and
+        ``endDate``. Needs ``analytics:read``. Unlike the ``/api/v1`` methods above,
+        this route speaks the legacy ``{success, data}`` dialect, which the SDK
+        unwraps.
+        """
+        envelope = self._client.request(method="GET", path="/api/analytics/top-events", query=query)
+        events: TopEventList = self._client.unwrap(envelope)
+        return events

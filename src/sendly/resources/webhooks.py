@@ -15,6 +15,7 @@ if TYPE_CHECKING:
         Body,
         JSONDict,
         Query,
+        WebhookCallRecord,
         WebhookCallsListResponse,
         WebhookCreatedV1,
         WebhookCreateResponse,
@@ -23,6 +24,7 @@ if TYPE_CHECKING:
         WebhookListResponse,
         WebhookListV1,
         WebhookRecord,
+        WebhookReplayResult,
         WebhookRotateSecretResponse,
         WebhookSecretRotatedV1,
         WebhookV1,
@@ -186,3 +188,50 @@ class WebhooksResource:
             method="POST", path=f"/api/v1/webhooks/{encode_path_segment(id)}/rotate-secret"
         )
         return response
+
+    # Delivery tooling on the legacy ``/api/webhooks`` surface. All need
+    # ``webhooks:write`` and speak the ``{success, data}`` dialect, which the SDK
+    # unwraps.
+
+    def retry_call(self, id: str, call_id: str) -> WebhookCallRecord:
+        """Deliver one webhook call again, with its original payload.
+
+        Returns the new call record.
+        """
+        envelope = self._client.request(
+            method="POST",
+            path=(
+                f"/api/webhooks/{encode_path_segment(id)}"
+                f"/calls/{encode_path_segment(call_id)}/retry"
+            ),
+        )
+        call: WebhookCallRecord = self._client.unwrap(envelope)
+        return call
+
+    def replay_failed(self, id: str, body: Body | None = None) -> WebhookReplayResult:
+        """Deliver every failed call to a webhook again.
+
+        ``body`` optionally narrows the replay with ``since`` (an ISO 8601
+        timestamp with offset) and ``limit`` (1-1000).
+        """
+        envelope = self._client.request(
+            method="POST",
+            path=f"/api/webhooks/{encode_path_segment(id)}/replay-failed",
+            body=body if body is not None else {},
+        )
+        result: WebhookReplayResult = self._client.unwrap(envelope)
+        return result
+
+    def test(self, id: str, body: Body | None = None) -> WebhookCallRecord:
+        """Send a sample event to a webhook and answer how the receiver responded.
+
+        ``body`` optionally picks the sample with ``eventType``. The call is real:
+        the receiver gets a signed request.
+        """
+        envelope = self._client.request(
+            method="POST",
+            path=f"/api/webhooks/{encode_path_segment(id)}/test",
+            body=body if body is not None else {},
+        )
+        call: WebhookCallRecord = self._client.unwrap(envelope)
+        return call

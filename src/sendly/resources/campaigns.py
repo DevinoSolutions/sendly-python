@@ -176,3 +176,29 @@ class CampaignsResource:
             method="POST", path=f"/api/v1/campaigns/{encode_path_segment(id)}/retry-failed"
         )
         return response
+
+    def duplicate(self, id: str) -> CampaignRecord:
+        """Copy a campaign as a new DRAFT with the same content, sender and audience.
+
+        Needs ``campaigns:write``. This route speaks the legacy ``{success, data}``
+        dialect (the copy is the unwrapped ``data``) and answers 201.
+        """
+        envelope = self._client.request(
+            method="POST", path=f"/api/campaigns/{encode_path_segment(id)}/duplicate"
+        )
+        record: CampaignRecord = self._client.unwrap(envelope)
+        return record
+
+    def send_test(self, id: str, email: str) -> JSONDict:
+        """Send ONE test copy of a campaign, marked ``[TEST]``, to ``email``.
+
+        Needs ``emails:test``. ``email`` must belong to a member of the project --
+        any other address is refused, so this cannot be used to mail a stranger.
+        Answers ``{success, message}`` (the legacy dialect, with no ``data``).
+        """
+        response: JSONDict = self._client.request(
+            method="POST",
+            path=f"/api/campaigns/{encode_path_segment(id)}/test",
+            body={"email": email},
+        )
+        return response
