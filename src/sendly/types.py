@@ -288,8 +288,8 @@ UpcomingActivity = JSONDict
 AuditLogPage = JSONDict
 #: One page of conversations across every mailbox: ``{items, nextCursor}``.
 InboxConversationPage = JSONDict
-#: The most frequent events in a period.
-TopEventList = JSONDict
+#: The most frequent events in a period, most frequent first: a bare list, not a page.
+TopEventList = list[JSONDict]
 
 # ---------- Key-callable operations added with the 2026-11 contract re-sync ----------
 

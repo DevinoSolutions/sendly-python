@@ -251,7 +251,8 @@ class ContactsResource:
 
         Needs ``contacts:read``. ``query`` takes ``search`` (part of an email
         address) and ``subscribed`` (``true`` or ``false``). The link is
-        single-use and lives 15 minutes; the SDK hands it back as
+        single-use and lives 15 minutes, and it only works for a user signed in to Sendly:
+        a pure API-key integration cannot download the CSV itself; the SDK hands it back as
         ``{status, url, expires_in, what, instruction}`` and never downloads the
         file itself.
         """

@@ -24,7 +24,7 @@ class ConnectionsResource:
         response: ConnectionsStatus = self._client.request(method="GET", path="/api/v1/connections")
         return response
 
-    def create_links(self, body: Body) -> ConnectLinks:
+    def create_links(self, body: Body | None = None) -> ConnectLinks:
         """Mint one-time links a person opens to connect a service. Needs ``connections:write``.
 
         ``body["provider"]`` is ``slack`` (the default; opening it needs a project
@@ -35,6 +35,10 @@ class ConnectionsResource:
         opens it.
         """
         response: ConnectLinks = self._client.request(
-            method="POST", path="/api/v1/connections/links", body=body
+            method="POST",
+            path="/api/v1/connections/links",
+            # The route rejects an empty request body with 422, so no argument means `{}`
+            # (provider defaults to `slack`).
+            body=body if body is not None else {},
         )
         return response

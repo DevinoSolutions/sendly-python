@@ -269,7 +269,8 @@ class MailboxesResource:
         event timeline: ``{contact, timeline}``.
 
         ``contact`` is ``None`` (with an empty timeline) when the correspondent is
-        not a contact. Needs ``mailbox-conversations:read``.
+        not a contact. Needs the opt-in ``mailbox-conversations:read`` scope (ticked by name
+        when the key was created).
         """
         envelope = self._client.request(
             method="GET",

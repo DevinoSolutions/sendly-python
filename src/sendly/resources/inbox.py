@@ -28,6 +28,9 @@ class InboxResource:
     def list_conversations(self, query: Query | None = None) -> InboxConversationPage:
         """One page of conversations across every mailbox, newest activity first.
 
+        Needs the ``mailbox-conversations:read`` scope, which is opt-in only: a key
+        holds it only if it was ticked by name when the key was created.
+
         ``query`` takes ``view`` (``inbox``, the default, or ``spam``), ``status``
         (``open``, ``snoozed``, ``closed`` or ``all``), ``q`` (a substring of the
         subject or the correspondent's address), ``cursor`` and ``limit``. Returns

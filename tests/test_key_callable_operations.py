@@ -615,6 +615,32 @@ def test_uploads_image_sends_multipart_under_the_field_image():
     assert result["url"] == "https://cdn.example/a.png"
 
 
+def test_connections_create_links_with_no_argument_sends_an_empty_object():
+    rec = Recorder(json_response(200, {"links": []}))
+    make_client(rec).connections.create_links()
+    assert json.loads(rec.request.content) == {}
+    assert rec.request.headers["content-type"] == "application/json"
+
+
+def test_top_events_returns_the_unwrapped_list():
+    events = [{"eventName": "order.paid", "count": 9}, {"eventName": "signup", "count": 4}]
+    rec = Recorder(json_response(200, {"success": True, "data": events}))
+    result = make_client(rec).analytics.top_events({"limit": 2})
+    assert result == events
+
+
+def test_inbox_walk_stops_on_a_repeated_next_cursor():
+    def page(item: str) -> Any:
+        return json_response(
+            200, {"success": True, "data": {"items": [{"id": item}], "nextCursor": "c1"}}
+        )
+
+    rec = SequenceRecorder(page("a"), page("b"))
+    items = list(make_client(rec).inbox.iter_list_conversations())
+    assert [i["id"] for i in items] == ["a", "b"]
+    assert len(rec.requests) == 2
+
+
 def test_uploads_image_guesses_the_type_from_the_filename():
     rec = Recorder(json_response(200, {"url": "https://cdn.example/logo.png"}))
     make_client(rec).uploads.image(b"\x89PNGrest", filename="logo.png")
