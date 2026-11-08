@@ -621,6 +621,22 @@ def test_uploads_image_guesses_the_type_from_the_filename():
     assert b"Content-Type: image/png" in rec.request.content
 
 
+@pytest.mark.parametrize(
+    ("filename", "expected"),
+    [
+        ("LOGO.PNG", b"Content-Type: image/png"),
+        ("a.webp", b"Content-Type: image/webp"),
+        ("p.JPG", b"Content-Type: image/jpeg"),
+        ("p.jpeg", b"Content-Type: image/jpeg"),
+        ("a.gif", b"Content-Type: image/gif"),
+    ],
+)
+def test_uploads_image_maps_extensions_explicitly(filename: str, expected: bytes):
+    rec = Recorder(json_response(200, {"url": "https://cdn.example/x"}))
+    make_client(rec).uploads.image(b"data", filename=filename)
+    assert expected in rec.request.content
+
+
 def test_uploads_image_refuses_an_unguessable_type_before_sending():
     rec = Recorder(json_response(200, {}))
     with pytest.raises(ValueError, match="pass `content_type`"):

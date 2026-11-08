@@ -3,7 +3,21 @@
 from __future__ import annotations
 
 import mimetypes
+import os
 from typing import TYPE_CHECKING
+
+#: The four image types the API accepts, by extension. Checked before
+#: ``mimetypes`` because that module reads the OS registry on Windows (which maps
+#: ``.png`` to ``image/x-png``, a type the server refuses) and older Pythons do
+#: not know ``.webp``.
+_IMAGE_TYPES = {
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".png": "image/png",
+    ".gif": "image/gif",
+    ".webp": "image/webp",
+}
+
 
 if TYPE_CHECKING:
     from sendly.client import Sendly
@@ -24,7 +38,8 @@ class UploadsResource:
         """Host an image (JPEG, PNG, GIF or WebP) and answer its URL.
 
         ``data`` is the file's bytes and ``content_type`` its MIME type. When
-        ``content_type`` is omitted it is guessed from the ``filename`` extension;
+        ``content_type`` is omitted it is chosen from the ``filename`` extension (``.jpg``, ``.jpeg``,
+        ``.png``, ``.gif``, ``.webp``, case-insensitive, then ``mimetypes``);
         if it cannot be guessed, :class:`ValueError` is raised rather than sending
         a type the API would refuse. The API checks both the type and the file's
         leading bytes, so a mislabelled file is refused with 400.
@@ -34,6 +49,8 @@ class UploadsResource:
         ``image``. Returns ``{url, key, filename, contentType, size}``; ``url`` is
         what goes in an email's HTML.
         """
+        if content_type is None:
+            content_type = _IMAGE_TYPES.get(os.path.splitext(filename)[1].lower())
         if content_type is None:
             content_type, _encoding = mimetypes.guess_type(filename)
         if content_type is None:
