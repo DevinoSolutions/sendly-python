@@ -3,6 +3,28 @@
 All notable changes to `sendly-python` are documented here. This project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 1.4.0 — 2026-11-23
+
+### Added
+
+- **`priority` on `emails.send`** (`"high" | "normal" | "bulk"`, default `normal`), now in the
+  vendored contract and pinned by a test. `send` always forwarded it; the spec the contract tests read
+  did not have it. It orders your OWN queued mail while Sendly paces sending: `high` goes ahead of your
+  queued `normal` and `bulk` mail, and `normal` mail up to 15 minutes newer and `high` mail up to 30
+  minutes newer can pass a `bulk` send (an ordering rule, not a delivery deadline). Projects take turns,
+  so it never moves another project's mail. Up to 60 `high` sends per project per rolling hour, across
+  all of its regions, are treated as `high`; past that they queue as `normal`.
+
+  ```python
+  client.emails.send({"to": to, "subject": subject, "body": body, "priority": "high"})
+  ```
+
+### Changed
+
+- Contract re-synced from the platform's committed spec. Five operations published since 1.3.0 (the
+  keyless test-project start, `GET|POST /api/v1/keyless*`, and `PUT /api/mailboxes/{id}/signature`)
+  are listed as not wrapped yet.
+
 ## [Unreleased]
 
 ### Added

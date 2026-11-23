@@ -1923,11 +1923,11 @@
         "description": "Resend `emails.get()` body.",
         "properties": {
           "bcc": {
-            "description": "Always `null`.",
+            "description": "Always `null`. Addresses blind-copied on a send are stored on the first recipient's row only and are not reported by this dialect.",
             "type": "null"
           },
           "cc": {
-            "description": "Always `null`.",
+            "description": "Always `null`. Addresses copied on a send are stored on the first recipient's row only and are not reported by this dialect.",
             "type": "null"
           },
           "created_at": {
@@ -2806,6 +2806,10 @@
             ],
             "type": "object"
           },
+          "includeSignature": {
+            "description": "Add the mailbox's saved signature under the message. Default false: a body that already ends with a sign-off is sent exactly as written. When true and the mailbox has a signature, it is added to the HTML and the plain-text parts (above the quoted original on a reply); a body that already ends with the signature does not get a second one. The response's `signatureIncluded` says what happened.",
+            "type": "boolean"
+          },
           "subject": {
             "maxLength": 200,
             "minLength": 1,
@@ -3536,6 +3540,19 @@
         },
         "type": "object"
       },
+      "ContactsImportForm": {
+        "properties": {
+          "file": {
+            "description": "The CSV file. Its name must end in `.csv`, or its type must be `text/csv`.",
+            "format": "binary",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file"
+        ],
+        "type": "object"
+      },
       "CreateApiKeyBody": {
         "properties": {
           "domainId": {
@@ -3846,6 +3863,176 @@
         "required": [
           "url",
           "eventTypes"
+        ],
+        "type": "object"
+      },
+      "CreatedDomain": {
+        "description": "A newly added sending identity, with the DNS records to publish for it.",
+        "properties": {
+          "createdAt": {
+            "description": "ISO 8601 datetime string",
+            "format": "date-time",
+            "type": "string"
+          },
+          "defaultFromAddress": {
+            "description": "The address a send on this stream uses when it names none. Always on this identity's own host.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "defaultFromName": {
+            "description": "The display name recipients see beside any address on this identity when a send names none, e.g. `Acme` in `Acme <receipts@mail.example.com>`. A send's own `name` and its template's from-name both win over it; `null` falls back to the project name.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "dkimStatus": {
+            "description": "Result of the last DNS check for this record type.",
+            "enum": [
+              "NOT_CHECKED",
+              "PENDING",
+              "VERIFIED",
+              "FAILED",
+              null
+            ],
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "dkimTokens": {
+            "description": "SES DKIM tokens to publish as CNAME records before the domain can verify.",
+            "items": {
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "dmarcStatus": {
+            "description": "Result of the last DNS check for this record type.",
+            "enum": [
+              "NOT_CHECKED",
+              "PENDING",
+              "VERIFIED",
+              "FAILED",
+              null
+            ],
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "dnsRecords": {
+            "description": "Every record to publish for sending: the DKIM CNAMEs, the MAIL FROM MX and SPF TXT, and the starter DMARC TXT. Publish them at your DNS host, then check `/verify`. Inbound-mail MX records are not listed.",
+            "items": {
+              "$ref": "#/components/schemas/DnsRecord"
+            },
+            "type": "array"
+          },
+          "domain": {
+            "description": "The bare domain, e.g. `mail.acme.com`.",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "lastHealthCheckAt": {
+            "description": "ISO 8601 datetime string",
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "mailFromDomain": {
+            "description": "Custom MAIL FROM subdomain SES has on record (normally `sendly.<domain>`).",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "mailFromDomainStatus": {
+            "description": "SES custom MAIL FROM setup state. Only `Success` means SES is using it.",
+            "enum": [
+              "Pending",
+              "Success",
+              "Failed",
+              "TemporaryFailure",
+              "NotConfigured",
+              null
+            ],
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "projectId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "receivingEnabled": {
+            "description": "Whether inbound mail for this domain is routed to Sendly mailboxes.",
+            "type": "boolean"
+          },
+          "region": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "spfStatus": {
+            "description": "Result of the last DNS check for this record type.",
+            "enum": [
+              "NOT_CHECKED",
+              "PENDING",
+              "VERIFIED",
+              "FAILED",
+              null
+            ],
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "stream": {
+            "description": "Which traffic this identity carries. `null` means unassigned, and an unassigned identity carries every stream — the behaviour of every domain added before per-stream identities. A send whose stream does not match an ASSIGNED identity is refused.",
+            "enum": [
+              "TRANSACTIONAL",
+              "MARKETING",
+              null
+            ],
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "streamDefault": {
+            "description": "Whether this is the project's default identity for its stream — the one a send picks when it names no from-address. At most one per (project, stream).",
+            "type": "boolean"
+          },
+          "updatedAt": {
+            "description": "ISO 8601 datetime string",
+            "format": "date-time",
+            "type": "string"
+          },
+          "verified": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "projectId",
+          "domain",
+          "verified",
+          "receivingEnabled",
+          "createdAt",
+          "updatedAt",
+          "dnsRecords"
         ],
         "type": "object"
       },
@@ -4391,6 +4578,40 @@
           "has_more",
           "next_cursor",
           "intake_configured"
+        ],
+        "type": "object"
+      },
+      "DnsRecord": {
+        "description": "A DNS record to publish for a sending domain.",
+        "properties": {
+          "name": {
+            "description": "The full record name (host) to publish it at, e.g. `abc123._domainkey.mail.acme.com`.",
+            "type": "string"
+          },
+          "purpose": {
+            "description": "What the record is for: DKIM signing, the custom MAIL FROM subdomain, or the DMARC policy.",
+            "enum": [
+              "dkim",
+              "mail_from",
+              "dmarc"
+            ],
+            "type": "string"
+          },
+          "type": {
+            "description": "Record type: `CNAME`, `MX` or `TXT`.",
+            "example": "CNAME",
+            "type": "string"
+          },
+          "value": {
+            "description": "The record value. An `MX` value starts with its priority, e.g. `10 feedback-smtp.us-east-1.amazonses.com`.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "name",
+          "value",
+          "purpose"
         ],
         "type": "object"
       },
@@ -5143,6 +5364,13 @@
             ],
             "type": "string"
           },
+          "dnsRecords": {
+            "description": "Every record to publish for sending: the DKIM CNAMEs, the MAIL FROM MX and SPF TXT, and the starter DMARC TXT. Publish them at your DNS host, then check `/verify`. Inbound-mail MX records are not listed.",
+            "items": {
+              "$ref": "#/components/schemas/DnsRecord"
+            },
+            "type": "array"
+          },
           "domain": {
             "type": "string"
           },
@@ -5197,7 +5425,8 @@
           "dkimStatus",
           "spfStatus",
           "dmarcStatus",
-          "mailFromDomain"
+          "mailFromDomain",
+          "dnsRecords"
         ],
         "type": "object"
       },
@@ -5662,6 +5891,32 @@
             ],
             "type": "string"
           },
+          "test_allowance": {
+            "description": "Where the project stands against its free test emails (sends from the sandbox address with no domain and no billing). Null once the project has a verified domain or a subscription: from then on test sends meet only the daily cap. When `remaining` reaches 0, the next test send is refused with `quota_exhausted` and `next: add_domain`.",
+            "properties": {
+              "limit": {
+                "description": "Free test emails a project gets before it sets anything up.",
+                "type": "integer"
+              },
+              "remaining": {
+                "description": "How many are left. At 0 the next test send is refused.",
+                "type": "integer"
+              },
+              "used": {
+                "description": "How many of them this project has used, this send included.",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "limit",
+              "used",
+              "remaining"
+            ],
+            "type": [
+              "object",
+              "null"
+            ]
+          },
           "to": {
             "description": "The recipient the message was queued for.",
             "format": "email",
@@ -5673,7 +5928,8 @@
           "status",
           "to",
           "from",
-          "sandbox"
+          "sandbox",
+          "test_allowance"
         ],
         "type": "object"
       },
@@ -6245,6 +6501,339 @@
         "required": [
           "success",
           "data"
+        ],
+        "type": "object"
+      },
+      "ImageUploadForm": {
+        "properties": {
+          "image": {
+            "description": "The image file: JPEG, PNG, GIF or WebP.",
+            "format": "binary",
+            "type": "string"
+          }
+        },
+        "required": [
+          "image"
+        ],
+        "type": "object"
+      },
+      "KeylessResendV1": {
+        "description": "A new code, sent.",
+        "properties": {
+          "code_expires_at": {
+            "description": "When the new code stops working.",
+            "format": "date-time",
+            "type": "string"
+          },
+          "codes_left": {
+            "description": "How many more codes this start can be sent.",
+            "type": "integer"
+          },
+          "email": {
+            "description": "The address the new code was sent to.",
+            "format": "email",
+            "type": "string"
+          },
+          "next": {
+            "description": "The next step.",
+            "properties": {
+              "call": {
+                "description": "The call to make next, as `METHOD /path`.",
+                "type": "string"
+              },
+              "say": {
+                "description": "A sentence an agent can relay to its user unchanged.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "call",
+              "say"
+            ],
+            "type": "object"
+          }
+        },
+        "required": [
+          "email",
+          "code_expires_at",
+          "codes_left",
+          "next"
+        ],
+        "type": "object"
+      },
+      "KeylessStartV1": {
+        "description": "A keyless test project, started.",
+        "properties": {
+          "claim_url": {
+            "description": "Where a person claims this test project into a free account. The key rides in the URL fragment, which a browser never sends to a server.",
+            "format": "uri",
+            "type": "string"
+          },
+          "code_expires_at": {
+            "description": "When the code stops working (15 minutes).",
+            "format": "date-time",
+            "type": "string"
+          },
+          "email": {
+            "description": "The address the code was sent to, lower-cased.",
+            "format": "email",
+            "type": "string"
+          },
+          "key": {
+            "description": "The keyless key (`pk_test_...`), shown ONCE. It can only send test emails, through POST /api/v1/emails/test, to the confirmed address, and call the keyless routes. Every other endpoint refuses it.",
+            "type": "string"
+          },
+          "next": {
+            "description": "The next step.",
+            "properties": {
+              "call": {
+                "description": "The call to make next, as `METHOD /path`.",
+                "type": "string"
+              },
+              "say": {
+                "description": "A sentence an agent can relay to its user unchanged.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "call",
+              "say"
+            ],
+            "type": "object"
+          },
+          "project_id": {
+            "description": "The keyless test project.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "test_allowance": {
+            "description": "Where the project stands against its free test emails.",
+            "properties": {
+              "limit": {
+                "description": "Free test emails a keyless project gets.",
+                "type": "integer"
+              },
+              "remaining": {
+                "description": "How many are left. At 0 the next test send is refused.",
+                "type": "integer"
+              },
+              "used": {
+                "description": "How many it has used.",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "limit",
+              "used",
+              "remaining"
+            ],
+            "type": "object"
+          },
+          "verified": {
+            "description": "Always false here: the address is confirmed by the code.",
+            "enum": [
+              false
+            ],
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "key",
+          "project_id",
+          "email",
+          "verified",
+          "code_expires_at",
+          "test_allowance",
+          "claim_url",
+          "next"
+        ],
+        "type": "object"
+      },
+      "KeylessStartV1Request": {
+        "additionalProperties": false,
+        "description": "Body for POST /api/v1/keyless/start.",
+        "properties": {
+          "email": {
+            "description": "The address the code is mailed to, and the ONLY address this project's test emails can then reach. Disposable and role addresses are refused.",
+            "format": "email",
+            "maxLength": 254,
+            "type": "string"
+          }
+        },
+        "required": [
+          "email"
+        ],
+        "type": "object"
+      },
+      "KeylessStatusV1": {
+        "description": "Where a keyless start stands.",
+        "properties": {
+          "claim_url": {
+            "description": "Where a person claims this test project into a free account. The key rides in the URL fragment, which a browser never sends to a server.",
+            "format": "uri",
+            "type": "string"
+          },
+          "claimed": {
+            "description": "Whether a person claimed the project. Always false here: a claim revokes this key.",
+            "type": "boolean"
+          },
+          "code_email": {
+            "description": "The mail carrying the current code. Null once the address is confirmed, or when there is no mail to read.",
+            "properties": {
+              "reason": {
+                "description": "Why it was not sent or bounced, as a sentence; else null.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "say": {
+                "description": "A sentence an agent can relay to its user unchanged.",
+                "type": "string"
+              },
+              "status": {
+                "description": "`queued`: taken, not sent yet. `sent`: handed to the mail provider. `delivered`: the recipient's mail server accepted it. `bounced`: that server refused it. `unconfirmed`: the mail provider never answered, so it may have arrived. `not_sent`: Sendly could not send it; a resend does not count against the start's codes (up to 5 such resends).",
+                "enum": [
+                  "queued",
+                  "sent",
+                  "delivered",
+                  "bounced",
+                  "unconfirmed",
+                  "not_sent"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "status",
+              "reason",
+              "say"
+            ],
+            "type": [
+              "object",
+              "null"
+            ]
+          },
+          "email": {
+            "description": "The start's address.",
+            "format": "email",
+            "type": "string"
+          },
+          "test_allowance": {
+            "description": "Where the project stands against its free test emails.",
+            "properties": {
+              "limit": {
+                "description": "Free test emails a keyless project gets.",
+                "type": "integer"
+              },
+              "remaining": {
+                "description": "How many are left. At 0 the next test send is refused.",
+                "type": "integer"
+              },
+              "used": {
+                "description": "How many it has used.",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "limit",
+              "used",
+              "remaining"
+            ],
+            "type": "object"
+          },
+          "verified": {
+            "description": "Whether the address is confirmed.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "email",
+          "verified",
+          "claimed",
+          "code_email",
+          "test_allowance",
+          "claim_url"
+        ],
+        "type": "object"
+      },
+      "KeylessVerifyV1": {
+        "description": "The keyless start's address, confirmed.",
+        "properties": {
+          "email": {
+            "description": "The confirmed address: the one test emails can reach.",
+            "format": "email",
+            "type": "string"
+          },
+          "next": {
+            "description": "The next step.",
+            "properties": {
+              "call": {
+                "description": "The call to make next, as `METHOD /path`.",
+                "type": "string"
+              },
+              "say": {
+                "description": "A sentence an agent can relay to its user unchanged.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "call",
+              "say"
+            ],
+            "type": "object"
+          },
+          "test_allowance": {
+            "description": "Where the project stands against its free test emails.",
+            "properties": {
+              "limit": {
+                "description": "Free test emails a keyless project gets.",
+                "type": "integer"
+              },
+              "remaining": {
+                "description": "How many are left. At 0 the next test send is refused.",
+                "type": "integer"
+              },
+              "used": {
+                "description": "How many it has used.",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "limit",
+              "used",
+              "remaining"
+            ],
+            "type": "object"
+          },
+          "verified": {
+            "description": "The address is confirmed.",
+            "enum": [
+              true
+            ],
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "verified",
+          "email",
+          "test_allowance",
+          "next"
+        ],
+        "type": "object"
+      },
+      "KeylessVerifyV1Request": {
+        "additionalProperties": false,
+        "description": "Body for POST /api/v1/keyless/verify.",
+        "properties": {
+          "code": {
+            "description": "The 6-digit code Sendly emailed to the start's address.",
+            "pattern": "^\\d{6}$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code"
         ],
         "type": "object"
       },
@@ -7161,6 +7750,10 @@
               "blocks"
             ],
             "type": "object"
+          },
+          "includeSignature": {
+            "description": "Add the mailbox's saved signature under the message. Default false: a body that already ends with a sign-off is sent exactly as written. When true and the mailbox has a signature, it is added to the HTML and the plain-text parts (above the quoted original on a reply); a body that already ends with the signature does not get a second one. The response's `signatureIncluded` says what happened.",
+            "type": "boolean"
           }
         },
         "type": "object"
@@ -7231,9 +7824,13 @@
                   "smtp"
                 ],
                 "type": "object"
+              },
+              "signature": {
+                "$ref": "#/components/schemas/MailboxSignature"
               }
             },
             "required": [
+              "signature",
               "settings"
             ],
             "type": "object"
@@ -7365,6 +7962,33 @@
           "contentType",
           "size",
           "url"
+        ],
+        "type": "object"
+      },
+      "MailboxSignature": {
+        "description": "A mailbox's email signature. Plain text only: nothing in it is rendered as markup, and a URL is linkified by the recipient's mail client like any other. It is added to a message sent through the API only when that send sets `includeSignature: true`; the two switches describe the dashboard composer, which puts the signature in the draft for the sender to see, edit or remove.",
+        "properties": {
+          "includeOnNewMessages": {
+            "description": "Whether the dashboard composer starts a new message with the signature in the draft.",
+            "type": "boolean"
+          },
+          "includeOnReplies": {
+            "description": "Whether the dashboard composer starts a reply with the signature in the draft.",
+            "type": "boolean"
+          },
+          "text": {
+            "description": "The signature as plain text, or null when the mailbox has none.",
+            "example": "Ada Lovelace\nSupport, Analytical Engines\nhttps://example.com",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "text",
+          "includeOnNewMessages",
+          "includeOnReplies"
         ],
         "type": "object"
       },
@@ -7682,6 +8306,15 @@
             "description": "ISO 639-1 code for customer-facing content.",
             "type": "string"
           },
+          "mailTransport": {
+            "description": "Operator-set. Which mail transport carries this project's email: `AUTO` follows the percentage rollout, `SES` and `KUMO` pin it. Mirrors the `MailTransportPolicy` enum.",
+            "enum": [
+              "AUTO",
+              "SES",
+              "KUMO"
+            ],
+            "type": "string"
+          },
           "name": {
             "type": "string"
           },
@@ -7708,6 +8341,10 @@
               "string",
               "null"
             ]
+          },
+          "sandboxTestSendsUsed": {
+            "description": "How many of the free test emails this project has sent from its sandbox address. They apply while the project has no verified domain and no subscription; `POST /v1/emails/test` reports the limit and what is left.",
+            "type": "integer"
           },
           "sesRegion": {
             "type": [
@@ -7760,7 +8397,9 @@
           "createdAt",
           "updatedAt",
           "poweredByBadge",
-          "sandboxAddress"
+          "mailTransport",
+          "sandboxAddress",
+          "sandboxTestSendsUsed"
         ],
         "type": "object"
       },
@@ -8494,6 +9133,7 @@
             "type": "array"
           },
           "bcc": {
+            "description": "Addresses blind-copied on the message: each receives it, and none is named in any header the other recipients can read. A copied address is a recipient of the message, so it counts like one: toward your usage and the monthly allowance, the daily and hourly sending limits, and the per-recipient price. An address on your suppression list is skipped (and not charged), and the message still goes to everyone else. Addresses are lowercased and de-duplicated; an address already in `to`, or a `bcc` already in `cc`, is not copied twice. When `to` names several addresses Sendly sends one message per `to`, and the copies are stored on, and delivered with, the FIRST `to`'s message only, so a copied address receives one copy of the send, not one per `to`. That also means the copies depend on that first message: if it is cancelled, fails or is blocked, they are not sent. A message that carries copies has no open or click tracking, because an open or a click by a copied person cannot be told apart from the recipient's, and its subject and body must not use `{{unsubscribeUrl}}`, `{{subscribeUrl}}`, `{{manageUrl}}` or `{{id}}`: they resolve to the first recipient's own account links, so a copied address would hold the power to unsubscribe them. A send that does is refused with `422` `validation_error` and nothing is sent.",
             "items": {
               "format": "email",
               "type": "string"
@@ -8506,6 +9146,7 @@
             "type": "string"
           },
           "cc": {
+            "description": "Addresses copied on the message: each receives it, and every recipient sees them in the `Cc` header. A copied address is a recipient of the message, so it counts like one: toward your usage and the monthly allowance, the daily and hourly sending limits, and the per-recipient price. An address on your suppression list is skipped (and not charged), and the message still goes to everyone else. Addresses are lowercased and de-duplicated; an address already in `to`, or a `bcc` already in `cc`, is not copied twice. When `to` names several addresses Sendly sends one message per `to`, and the copies are stored on, and delivered with, the FIRST `to`'s message only, so a copied address receives one copy of the send, not one per `to`. That also means the copies depend on that first message: if it is cancelled, fails or is blocked, they are not sent. A message that carries copies has no open or click tracking, because an open or a click by a copied person cannot be told apart from the recipient's, and its subject and body must not use `{{unsubscribeUrl}}`, `{{subscribeUrl}}`, `{{manageUrl}}` or `{{id}}`: they resolve to the first recipient's own account links, so a copied address would hold the power to unsubscribe them. A send that does is refused with `422` `validation_error` and nothing is sent.",
             "items": {
               "format": "email",
               "type": "string"
@@ -8559,6 +9200,17 @@
             "type": "string"
           },
           "name": {
+            "description": "The sender's display name, shown beside the from address (`Acme <hello@acme.com>`). Used only when `from` does not carry a name of its own: a `name` inside the `from` object wins, and a send that names neither falls back to the template's from-name, then the project name. It is not the recipient's name; put that in `to`.",
+            "type": "string"
+          },
+          "priority": {
+            "description": "Where this send waits when Sendly is pacing your sending: `high` for mail a person is waiting on right now (verification codes, password resets, magic links), `bulk` for mail that can wait (reminders, digests, batch notifications), `normal` otherwise. It orders your OWN queued mail: a `high` send goes ahead of your queued `normal` and `bulk` sends. A `bulk` send can be passed by your `normal` mail sent up to 15 minutes after it and your `high` mail sent up to 30 minutes after it, never by later mail; this orders the queue, it is not a delivery deadline. Projects take turns, so one project's backlog never holds another project's mail, whatever its priority. Up to 60 `high` sends per project per rolling hour, across all of its sending regions, are treated as `high`; past that they queue as `normal`. It does not change the rate you may send at. Defaults to `normal`.",
+            "enum": [
+              "high",
+              "normal",
+              "bulk"
+            ],
+            "example": "high",
             "type": "string"
           },
           "reply": {
@@ -8717,7 +9369,7 @@
         "type": "object"
       },
       "SendEmailV1": {
-        "description": "Body for POST /api/v1/emails. Either `template` or `subject`+`body` is required, and `to` names exactly one recipient.",
+        "description": "Body for POST /api/v1/emails. Either `template` or `subject`+`body` is required, and `to` names exactly one recipient; copy others with `cc` and `bcc`. Errors are RFC 9457 `application/problem+json`.",
         "properties": {
           "attachments": {
             "items": {
@@ -8763,6 +9415,7 @@
             "type": "array"
           },
           "bcc": {
+            "description": "Addresses blind-copied on the message: each receives it, and none is named in any header the other recipients can read. A copied address is a recipient of the message, so it counts like one: toward your usage and the monthly allowance, the daily and hourly sending limits, and the per-recipient price. An address on your suppression list is skipped (and not charged), and the message still goes to everyone else. Addresses are lowercased and de-duplicated; an address already in `to`, or a `bcc` already in `cc`, is not copied twice. This send has exactly one `to`, so there is one message and the copies are delivered with it: if it is cancelled, fails or is blocked, they are not sent. A message that carries copies has no open or click tracking, because an open or a click by a copied person cannot be told apart from the recipient's, and its subject and body must not use `{{unsubscribeUrl}}`, `{{subscribeUrl}}`, `{{manageUrl}}` or `{{id}}`: they resolve to the first recipient's own account links, so a copied address would hold the power to unsubscribe them. A send that does is refused with `422` `validation_error` and nothing is sent.",
             "items": {
               "format": "email",
               "type": "string"
@@ -8775,6 +9428,7 @@
             "type": "string"
           },
           "cc": {
+            "description": "Addresses copied on the message: each receives it, and every recipient sees them in the `Cc` header. A copied address is a recipient of the message, so it counts like one: toward your usage and the monthly allowance, the daily and hourly sending limits, and the per-recipient price. An address on your suppression list is skipped (and not charged), and the message still goes to everyone else. Addresses are lowercased and de-duplicated; an address already in `to`, or a `bcc` already in `cc`, is not copied twice. This send has exactly one `to`, so there is one message and the copies are delivered with it: if it is cancelled, fails or is blocked, they are not sent. A message that carries copies has no open or click tracking, because an open or a click by a copied person cannot be told apart from the recipient's, and its subject and body must not use `{{unsubscribeUrl}}`, `{{subscribeUrl}}`, `{{manageUrl}}` or `{{id}}`: they resolve to the first recipient's own account links, so a copied address would hold the power to unsubscribe them. A send that does is refused with `422` `validation_error` and nothing is sent.",
             "items": {
               "format": "email",
               "type": "string"
@@ -8828,6 +9482,17 @@
             "type": "string"
           },
           "name": {
+            "description": "The sender's display name, shown beside the from address (`Acme <hello@acme.com>`). Used only when `from` does not carry a name of its own: a `name` inside the `from` object wins, and a send that names neither falls back to the template's from-name, then the project name. It is not the recipient's name; put that in `to`.",
+            "type": "string"
+          },
+          "priority": {
+            "description": "Where this send waits when Sendly is pacing your sending: `high` for mail a person is waiting on right now (verification codes, password resets, magic links), `bulk` for mail that can wait (reminders, digests, batch notifications), `normal` otherwise. It orders your OWN queued mail: a `high` send goes ahead of your queued `normal` and `bulk` sends. A `bulk` send can be passed by your `normal` mail sent up to 15 minutes after it and your `high` mail sent up to 30 minutes after it, never by later mail; this orders the queue, it is not a delivery deadline. Projects take turns, so one project's backlog never holds another project's mail, whatever its priority. Up to 60 `high` sends per project per rolling hour, across all of its sending regions, are treated as `high`; past that they queue as `normal`. It does not change the rate you may send at. Defaults to `normal`.",
+            "enum": [
+              "high",
+              "normal",
+              "bulk"
+            ],
+            "example": "high",
             "type": "string"
           },
           "reply": {
@@ -10256,6 +10921,26 @@
         },
         "type": "object"
       },
+      "UpdateMailboxSignature": {
+        "additionalProperties": false,
+        "description": "Body for PUT /api/mailboxes/{id}/signature. Send any of the three keys; a key left out is unchanged. `text` is plain text (at most 1000 characters and 12 lines), stored after control characters and trailing whitespace are removed; `null` or an empty string removes the signature.",
+        "properties": {
+          "includeOnNewMessages": {
+            "type": "boolean"
+          },
+          "includeOnReplies": {
+            "type": "boolean"
+          },
+          "text": {
+            "maxLength": 1000,
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "type": "object"
+      },
       "UpdateSnippet": {
         "description": "Body for PATCH /api/snippets/{id}.",
         "properties": {
@@ -10499,7 +11184,7 @@
             "type": "object"
           },
           "plan": {
-            "description": "`custom` when an operator set per-category limits, `pro` on an active subscription or store entitlement, else `free`.",
+            "description": "`custom` when an operator set the project's limits (per-category limits, or none at all for Sendly's own internal projects), `pro` on an active subscription or store entitlement, else `free`.",
             "enum": [
               "free",
               "pro",
@@ -11470,8 +12155,33 @@
         "type": "object"
       },
       "WebhookEmailFailedData": {
-        "description": "`data` of `email.failed`, fired when a send ends in a terminal failure. Three sources share it: Sendly refusing the send (`error` + `failureKind`), SES rejecting it (`reason`), and a template rendering failure (`errorMessage` + `templateName`). Which of those fields are present tells them apart.",
+        "description": "`data` of `email.failed`, fired when a send ends in a terminal failure. Four sources share it: Sendly refusing the send (`error` + `failureKind`), SES rejecting it (`reason`), a template rendering failure (`errorMessage` + `templateName`), and the mail server giving up on a message it accepted, for instance after it kept deferring past its maximum age (`bounceType` + `bounceSubType` + `bounceStatusCode` + `bounceDiagnosticCode`). That last case says nothing against the recipient's address: the contact stays subscribed and nothing is suppressed. Which of those fields are present tells them apart.",
         "properties": {
+          "bounceDiagnosticCode": {
+            "description": "The receiving server's last reply, when there was one, e.g. `552 5.2.2 mailbox full`. Free text from a remote server: show it to a person, do not parse it. Any email address it quoted is replaced with `[address removed]`, and it is cut at 500 characters. Null when the server gave none.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "bounceStatusCode": {
+            "description": "The RFC 3463 enhanced status code of that last reply, e.g. `5.2.2`. Null when there was none or it was not in that form.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "bounceSubType": {
+            "description": "Why the mail server gave up, as its classifier spells it: for example `MessageExpired` (it kept deferring past its maximum age), `AdminBounce` (an operator removed it from the queue) or a refusal class such as `QuotaIssues` or `SpamBlock`. The set can grow: treat an unknown value as `General`. Present together with `bounceType`.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "bounceType": {
+            "description": "Present when the mail server gave up on a message it had accepted. `Transient` means the failure says nothing against the recipient's address: it is not suppressed and the contact stays subscribed.",
+            "type": "string"
+          },
           "campaignId": {
             "type": [
               "string",
@@ -11487,7 +12197,7 @@
             "type": "string"
           },
           "error": {
-            "description": "Why the send died, as a sentence for the sender. Present when Sendly itself refused or failed the send.",
+            "description": "Why the send died, as a sentence for the sender. Present when Sendly itself refused or failed the send, or the mail server gave up on it.",
             "type": "string"
           },
           "errorMessage": {
@@ -14360,7 +15070,7 @@
           }
         ],
         "responses": {
-          "200": {
+          "201": {
             "content": {
               "application/json": {
                 "schema": {
@@ -14370,7 +15080,7 @@
                 }
               }
             },
-            "description": "OK"
+            "description": "Created"
           },
           "400": {
             "content": {
@@ -15401,7 +16111,7 @@
     },
     "/api/compat/sendgrid/v3/mail/send": {
       "post": {
-        "description": "Drop-in for SendGrid's `POST /v3/mail/send`. Authenticate as SendGrid does, with `Authorization: Bearer <sendly key>` (the legacy `x-api-key-token` header is also read). A `pk_` send-only key is accepted. The key must hold `emails:send`.\n\nEach `personalizations` entry is translated to one native send. The whole fan-out is validated, and content review runs over it, before any send runs; the sends themselves then run in order, so a later send that fails can leave the earlier ones queued. At most 100 `personalizations` are accepted per request, as on the native batch; more answers `400` and nothing is sent. Success is `202` with an EMPTY body and an `X-Message-Id` header carrying the first queued email id — the semantics @sendgrid/mail expects. There is no `Idempotency-Key` support on this route.\n\nA feature the vendor offers that Sendly has no equivalent for is refused with its own status (code `COMPAT_UNSUPPORTED`) rather than silently dropped.",
+        "description": "Drop-in for SendGrid's `POST /v3/mail/send`. Authenticate as SendGrid does, with `Authorization: Bearer <sendly key>` (the legacy `x-api-key-token` header is also read). A `pk_` send-only key is accepted. The key must hold `emails:send`.\n\nEach `personalizations` entry is translated to one native send. The whole fan-out is validated, and content review runs over it, before any send runs, and so does a render of every personalization's subject and body (a template the renderer refuses answers `400` with nothing queued); the sends themselves then run in order, so a later send that fails for another reason can leave the earlier ones queued. At most 100 `personalizations` are accepted per request, as on the native batch; more answers `400` and nothing is sent. Success is `202` with an EMPTY body and an `X-Message-Id` header carrying the first queued email id — the semantics @sendgrid/mail expects. There is no `Idempotency-Key` support on this route.\n\nA feature the vendor offers that Sendly has no equivalent for is refused with its own status (code `COMPAT_UNSUPPORTED`) rather than silently dropped.",
         "operationId": "compatSendgridSendMail",
         "requestBody": {
           "content": {
@@ -15435,7 +16145,7 @@
                 }
               }
             },
-            "description": "Validation failed, or the body could not be read: a body that is not JSON answers `Request body must be valid JSON.` and valid JSON whose root is not an object answers `Request body must be a JSON object.`. A `personalizations` array longer than 100 is refused the same way, before any send. All are a single `errors[]` entry."
+            "description": "Validation failed, or the body could not be read: a body that is not JSON answers `Request body must be valid JSON.` and valid JSON whose root is not an object answers `Request body must be a JSON object.`. A `personalizations` array longer than 100 is refused the same way, before any send. So is a subject or body the template renderer refuses (an unclosed `{{#if}}`, a nesting or output limit) in ANY personalization, and `{{unsubscribeUrl}}`, `{{subscribeUrl}}`, `{{manageUrl}}` or `{{id}}` in one that has `cc` or `bcc`. SendGrid's `mail/send` has no `422`, so every one of these is `400`. All are a single `errors[]` entry."
           },
           "401": {
             "content": {
@@ -15466,16 +16176,6 @@
               }
             },
             "description": "The request body is larger than 33554432 bytes (32 MiB), the cap every batch-shaped send route shares. It is refused before anything is parsed, and nothing is sent; split it across requests."
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/CompatSendGridError"
-                }
-              }
-            },
-            "description": "Validation failed, the key was reused for a different message, or a vendor feature Sendly does not support was used."
           },
           "429": {
             "content": {
@@ -16065,17 +16765,39 @@
         "description": "Delete up to 1000 contacts, by id (contactIds) or by email address (emails). Pass one of the two. By id runs in the background.\n\nRequires the `contacts:write` scope — Create, update, and delete your contacts.",
         "operationId": "bulkDeleteContacts2",
         "responses": {
-          "200": {
+          "202": {
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": {},
-                  "properties": {},
+                  "description": "The delete was accepted and is queued.",
+                  "properties": {
+                    "data": {
+                      "properties": {
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "message"
+                      ],
+                      "type": "object"
+                    },
+                    "success": {
+                      "enum": [
+                        true
+                      ],
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ],
                   "type": "object"
                 }
               }
             },
-            "description": "OK"
+            "description": "Accepted"
           },
           "400": {
             "content": {
@@ -16162,17 +16884,39 @@
         "description": "Permanently erase up to 1000 contacts and their history, and block their addresses from being mailed again (GDPR erasure). Runs in the background. This cannot be undone.\n\nRequires the `contacts:write` scope — Create, update, and delete your contacts.",
         "operationId": "bulkPurgeContacts",
         "responses": {
-          "200": {
+          "202": {
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": {},
-                  "properties": {},
+                  "description": "The purge was accepted and is queued.",
+                  "properties": {
+                    "data": {
+                      "properties": {
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "message"
+                      ],
+                      "type": "object"
+                    },
+                    "success": {
+                      "enum": [
+                        true
+                      ],
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ],
                   "type": "object"
                 }
               }
             },
-            "description": "OK"
+            "description": "Accepted"
           },
           "400": {
             "content": {
@@ -16259,17 +17003,39 @@
         "description": "Subscribe or unsubscribe up to 1000 contacts at once. Runs in the background.\n\nRequires the `contacts:write` scope — Create, update, and delete your contacts.",
         "operationId": "bulkSetSubscription",
         "responses": {
-          "200": {
+          "202": {
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": {},
-                  "properties": {},
+                  "description": "The resubscribe was accepted and is queued.",
+                  "properties": {
+                    "data": {
+                      "properties": {
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "message"
+                      ],
+                      "type": "object"
+                    },
+                    "success": {
+                      "enum": [
+                        true
+                      ],
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ],
                   "type": "object"
                 }
               }
             },
-            "description": "OK"
+            "description": "Accepted"
           },
           "400": {
             "content": {
@@ -16356,17 +17122,39 @@
         "description": "Subscribe or unsubscribe up to 1000 contacts at once. Runs in the background.\n\nRequires the `contacts:write` scope — Create, update, and delete your contacts.",
         "operationId": "bulkSetSubscription2",
         "responses": {
-          "200": {
+          "202": {
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": {},
-                  "properties": {},
+                  "description": "The unsubscribe was accepted and is queued.",
+                  "properties": {
+                    "data": {
+                      "properties": {
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "message"
+                      ],
+                      "type": "object"
+                    },
+                    "success": {
+                      "enum": [
+                        true
+                      ],
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ],
                   "type": "object"
                 }
               }
             },
-            "description": "OK"
+            "description": "Accepted"
           },
           "400": {
             "content": {
@@ -16662,17 +17450,42 @@
           }
         ],
         "responses": {
-          "200": {
+          "202": {
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": {},
-                  "properties": {},
+                  "description": "The removal was accepted and runs as a background job.",
+                  "properties": {
+                    "data": {
+                      "properties": {
+                        "status": {
+                          "enum": [
+                            "queued"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "status"
+                      ],
+                      "type": "object"
+                    },
+                    "success": {
+                      "enum": [
+                        true
+                      ],
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ],
                   "type": "object"
                 }
               }
             },
-            "description": "OK"
+            "description": "Accepted"
           },
           "400": {
             "content": {
@@ -16970,20 +17783,70 @@
     },
     "/api/contacts/import": {
       "post": {
-        "description": "Import contacts from CSV text, up to 5 MB. The first row is the header and must include an email column; other columns become custom fields. The import runs in the background, so new contacts appear in list_contacts as it finishes.\n\nRequires the `contacts:write` scope — Create, update, and delete your contacts.",
+        "description": "Queue an import of contacts from a CSV file. Send it as `multipart/form-data` with the file in the `file` field, or as `application/json` for a caller that cannot send multipart: `{ csv, filename? }`, the whole file as text. The first row is the header and must include an `email` column; other columns become custom fields.\n\nThe file may be up to 5 MB and must hold no more rows than the project's per-import limit; a file over either limit, or one with no `email` column, is refused with `400` `VALIDATION_ERROR` (`IMPORT_LIMIT_EXCEEDED` for the row limit) before anything is queued, as is a call with no body, a body that is neither multipart nor valid JSON, or no `file` part. A JSON body that is not `{ csv, filename? }` answers `422` `VALIDATION_ERROR`. The import runs in the background, so new contacts appear in the contact list as it finishes.\n\nRequires the `contacts:write` scope — Create, update, and delete your contacts.",
         "operationId": "importContacts",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "csv": {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "filename": {
+                    "maxLength": 200,
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "csv"
+                ],
+                "type": "object"
+              }
+            },
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/ContactsImportForm"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
-          "200": {
+          "202": {
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": {},
-                  "properties": {},
+                  "description": "The import was accepted and is queued; it has not run yet.",
+                  "properties": {
+                    "data": {
+                      "properties": {
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "message"
+                      ],
+                      "type": "object"
+                    },
+                    "success": {
+                      "enum": [
+                        true
+                      ],
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ],
                   "type": "object"
                 }
               }
             },
-            "description": "OK"
+            "description": "Accepted"
           },
           "400": {
             "content": {
@@ -17025,6 +17888,16 @@
             },
             "description": "Resource not found"
           },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "`VALIDATION_ERROR` — the JSON body is not `{ csv, filename? }`."
+          },
           "429": {
             "content": {
               "application/json": {
@@ -17059,7 +17932,7 @@
             ]
           }
         ],
-        "summary": "Import contacts from CSV text, up to 5 MB",
+        "summary": "Import contacts from a CSV file",
         "tags": [
           "Contacts"
         ]
@@ -17838,7 +18711,7 @@
         ]
       },
       "post": {
-        "description": "Register a new domain with SES and persist its DKIM tokens.\n\nRequires the `domains:write` scope — Add and remove sending domains, and trigger verification.",
+        "description": "Register a new domain with SES and persist its DKIM tokens. The response lists every DNS record to publish in `dnsRecords`; publish them, then poll `GET /api/domains/{id}/verify`.\n\nRequires the `domains:write` scope — Add and remove sending domains, and trigger verification.",
         "operationId": "addDomain",
         "requestBody": {
           "content": {
@@ -17857,7 +18730,7 @@
                 "schema": {
                   "properties": {
                     "data": {
-                      "$ref": "#/components/schemas/Domain"
+                      "$ref": "#/components/schemas/CreatedDomain"
                     },
                     "success": {
                       "enum": [
@@ -19335,7 +20208,7 @@
                 }
               }
             },
-            "description": "`CONFLICT` — a request with this `Idempotency-Key` is still in flight. Retry shortly."
+            "description": "`CONFLICT` — a request with this `Idempotency-Key` is still in flight. Retry shortly. Or `OUTCOME_UNCERTAIN` — a request with this key failed after part of it may already have been sent (`error.details.cause` holds the status and code it would otherwise have answered with). Ask `POST /api/emails/outcome` what it did; do not send it again under a new key."
           },
           "422": {
             "content": {
@@ -19399,7 +20272,7 @@
     },
     "/api/emails/batch": {
       "post": {
-        "description": "Send up to 100 emails in one request. Returns 207 Multi-Status if any entry failed, or 200 if all succeeded. Per-entry results are reported in the `data` array.\n\nThe whole batch is ONE idempotent unit: an `Idempotency-Key` replayed with the same entry list replays the same per-index results, and replaying it with an edited list answers `422 IDEMPOTENCY_KEY_REUSED` rather than returning results for indexes the new body no longer has.\n\nThe request body may be at most 33554432 bytes (32 MiB). A larger one answers `413 PAYLOAD_TOO_LARGE` before anything is parsed or sent; split it across requests. Attachments are the usual reason a batch gets that big, since each entry may carry up to 10 MB of them, base64-encoded.\n\nRequires the `emails:send` scope — Send emails from your verified domains.",
+        "description": "Send up to 100 emails in one request. Returns 207 Multi-Status if any entry failed, or 200 if all succeeded. Per-entry results are reported in the `data` array. An entry with a recipient at a reserved domain (`.test`, `.example`, `.invalid`, `.localhost`, `.local`, example.com and the like, which can never receive mail) fails alone with `RESERVED_RECIPIENT_DOMAIN`; the other entries are still sent.\n\nThe whole batch is ONE idempotent unit: an `Idempotency-Key` replayed with the same entry list replays the same per-index results, and replaying it with an edited list answers `422 IDEMPOTENCY_KEY_REUSED` rather than returning results for indexes the new body no longer has.\n\nThe request body may be at most 33554432 bytes (32 MiB). A larger one answers `413 PAYLOAD_TOO_LARGE` before anything is parsed or sent; split it across requests. Attachments are the usual reason a batch gets that big, since each entry may carry up to 10 MB of them, base64-encoded.\n\nRequires the `emails:send` scope — Send emails from your verified domains.",
         "operationId": "sendEmailBatch",
         "parameters": [
           {
@@ -19482,7 +20355,7 @@
                 }
               }
             },
-            "description": "`CONFLICT` — a request with this `Idempotency-Key` is still in flight. Retry shortly."
+            "description": "`CONFLICT` — a request with this `Idempotency-Key` is still in flight. Retry shortly. Or `OUTCOME_UNCERTAIN` — a request with this key failed after part of it may already have been sent (`error.details.cause` holds the status and code it would otherwise have answered with). Ask `POST /api/emails/outcome` what it did; do not send it again under a new key."
           },
           "413": {
             "content": {
@@ -19660,7 +20533,7 @@
         ]
       },
       "patch": {
-        "description": "Move a still-pending email to a new send time, or pass `scheduledAt: null` to send it now. Returns 409 if the email has already left PENDING.\n\nRequires the `emails:send` scope — Send emails from your verified domains.",
+        "description": "Move a still-pending email to a new send time, or pass `scheduledAt: null` to send it now. Returns 409 if the email is no longer waiting to be sent, or changed while the request ran (fetch it again and retry).\n\nRequires the `emails:send` scope — Send emails from your verified domains.",
         "operationId": "rescheduleEmail",
         "parameters": [
           {
@@ -19754,7 +20627,7 @@
                 }
               }
             },
-            "description": "`EMAIL_NOT_RESCHEDULABLE` — the email already left PENDING"
+            "description": "`EMAIL_NOT_RESCHEDULABLE` — the email is no longer waiting to be sent (it was sent, handed off, failed, cancelled, or is the record of a message a mailbox already relayed), or it changed while this request ran; fetch it again and retry"
           },
           "429": {
             "content": {
@@ -19798,7 +20671,7 @@
     },
     "/api/emails/{id}/schedule": {
       "delete": {
-        "description": "Mark a still-pending email as CANCELLED before the worker picks it up. Returns 409 if the email has already left PENDING.\n\nRequires the `emails:send` scope — Send emails from your verified domains.",
+        "description": "Mark a still-pending email as CANCELLED before the worker picks it up. Returns 409 if the email is no longer waiting to be sent.\n\nRequires the `emails:send` scope — Send emails from your verified domains.",
         "operationId": "cancelScheduledEmail",
         "parameters": [
           {
@@ -19870,7 +20743,7 @@
                 }
               }
             },
-            "description": "Email already past PENDING"
+            "description": "`EMAIL_NOT_CANCELLABLE` — the email is no longer waiting to be sent: it was sent, handed off, failed or already cancelled, or it is the record of a message a mailbox already relayed"
           },
           "429": {
             "content": {
@@ -22582,7 +23455,7 @@
     },
     "/api/mailboxes/{id}/conversations/{conversationId}/reply": {
       "post": {
-        "description": "Answer the person who last wrote in, from the mailbox's own address, inside the same thread.\n\n**You cannot name the recipient or the sender.** The recipient is the sender of the latest inbound message and the sender is the mailbox in the path. This is not `sendMailboxMessage`: that starts a new conversation with an address you name, under `mailboxes:send`; this one only ever answers someone who wrote first, under a separate scope, so holding one never implies the other.\n\nSupply either a plain-text body or a structured React Email document. Sendly renders HTML and a matching plain-text alternative.\n\nRefusals worth handling by name:\n\n- `422 UNPROCESSABLE` — the thread has no inbound message to answer, or the mailbox is not provisioned.\n- `422 SEND_REFUSED` — the recipient is suppressed or the project may not send.\n- `429 SENDING_LIMIT_REACHED` — a daily or account sending limit; wait the `Retry-After` and retry.\n- `429 BILLING_LIMIT_EXCEEDED` — the plan's monthly sending quota is spent (`error.next` names `upgrade_plan`, no `Retry-After`); upgrade the plan.\n- `502 JMAP_SUBMISSION_FAILED` — the mail server refused the submission. Nothing was sent.\n- `409 SEND_NOT_RECORDED` — the reply WAS sent; Sendly could not write its record at that moment (`error.details.submitted` is `true`). **Do not send it again.**\n\nA reply cannot be recalled once sent.\n\n**No existing API key can call this.** The scope is opt-in only: a key or an OAuth connection holds it only if it was ticked by name when the credential was created or approved — the legacy full-access key and the \"Full access\" preset do not carry it.\n\nRequires the `mailbox-conversations:reply` scope — Reply to conversations in your hosted mailboxes, from the mailbox's own address.",
+        "description": "Answer the person who last wrote in, from the mailbox's own address, inside the same thread.\n\n**You cannot name the recipient or the sender.** The recipient is the sender of the latest inbound message and the sender is the mailbox in the path. This is not `sendMailboxMessage`: that starts a new conversation with an address you name, under `mailboxes:send`; this one only ever answers someone who wrote first, under a separate scope, so holding one never implies the other.\n\nSupply either a plain-text body or a structured React Email document. Sendly renders HTML and a matching plain-text alternative.\n\n**The mailbox's signature is opt-in per send.** `includeSignature` defaults to false; set it to true to have Sendly add the saved signature under your text and above the quoted original, in both parts.\n\nRefusals worth handling by name:\n\n- `422 UNPROCESSABLE` — the thread has no inbound message to answer, or the mailbox is not provisioned.\n- `422 SEND_REFUSED` — the recipient is suppressed or the project may not send.\n- `429 SENDING_LIMIT_REACHED` — a daily or account sending limit; wait the `Retry-After` and retry.\n- `429 BILLING_LIMIT_EXCEEDED` — the plan's monthly sending quota is spent (`error.next` names `upgrade_plan`, no `Retry-After`); upgrade the plan.\n- `502 JMAP_SUBMISSION_FAILED` — the mail server refused the submission. Nothing was sent.\n- `409 SEND_NOT_RECORDED` — the reply WAS sent; Sendly could not write its record at that moment (`error.details.submitted` is `true`). **Do not send it again.**\n\nA reply cannot be recalled once sent.\n\n**No existing API key can call this.** The scope is opt-in only: a key or an OAuth connection holds it only if it was ticked by name when the credential was created or approved — the legacy full-access key and the \"Full access\" preset do not carry it.\n\nRequires the `mailbox-conversations:reply` scope — Reply to conversations in your hosted mailboxes, from the mailbox's own address.",
         "operationId": "replyToMailboxConversation",
         "parameters": [
           {
@@ -22622,6 +23495,10 @@
                   "properties": {
                     "data": {
                       "properties": {
+                        "signatureIncluded": {
+                          "description": "Present only when the request set `includeSignature`: whether the mailbox's saved signature is in the message that was sent (false when the mailbox has none).",
+                          "type": "boolean"
+                        },
                         "status": {
                           "enum": [
                             "queued"
@@ -23154,6 +24031,16 @@
               }
             },
             "description": "The drafting model was unreachable or returned nothing usable."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "The AI is busy right now. Nothing was drafted; try again in a moment."
           }
         },
         "security": [
@@ -23177,7 +24064,7 @@
     },
     "/api/mailboxes/{id}/messages": {
       "post": {
-        "description": "Compose and send a NEW message from a hosted mailbox — a first email to someone, not a reply inside a thread that already exists. It goes out from the mailbox's own address, over its own domain, and the recipient can reply to it.\n\n**The sender is the mailbox in the path.** There is no `from` field: a route that sends under a customer's own identity must not take the identity as an argument.\n\nSupply either `body` (plain text) or `document` (a branded React Email document with images, GIFs, buttons and columns). Sendly renders both HTML and a matching text alternative. Caller HTML, JSX and arbitrary CSS are not accepted.\n\nBcc recipients are delivered to but appear in no header, which also means the copy filed in the mailbox's Sent folder does not record them.\n\nRefusals worth handling by name:\n\n- `422 RECIPIENT_SUPPRESSED` — one or more recipients are on this project's suppression list. The message names them; remove them or take them off the list.\n- `422 CONTENT_REFUSED` — the outbound content scanner refused the message.\n- `503 CONTENT_SCAN_UNAVAILABLE` — screening could not reach a verdict for a young project. Nothing was sent; retry shortly.\n- `429` — a mailbox may send 60 messages an hour through this endpoint.\n- `429 SENDING_LIMIT_REACHED` — a daily, account or warm-up sending limit; wait the `Retry-After` and retry.\n- `429 BILLING_LIMIT_EXCEEDED` — the plan's monthly sending quota is spent (`error.next` names `upgrade_plan`, no `Retry-After`); upgrade the plan.\n- `409 SEND_NOT_RECORDED` — the message WAS sent; Sendly could not write its record at that moment (`error.details.submitted` is `true`). **Do not send it again.** The copy appears in the mailbox once it next syncs.\n\nThe message is stored as a new conversation on the mailbox, so the reply threads onto it.\n\nRequires the `mailboxes:send` scope — Write and send new email from your hosted mailboxes, as that address.",
+        "description": "Compose and send a NEW message from a hosted mailbox — a first email to someone, not a reply inside a thread that already exists. It goes out from the mailbox's own address, over its own domain, and the recipient can reply to it.\n\n**The sender is the mailbox in the path.** There is no `from` field: a route that sends under a customer's own identity must not take the identity as an argument.\n\nSupply either `body` (plain text) or `document` (a branded React Email document with images, GIFs, buttons and columns). Sendly renders both HTML and a matching text alternative. Caller HTML, JSX and arbitrary CSS are not accepted.\n\n**The mailbox's signature is opt-in per send.** `includeSignature` defaults to false, so a body that ends with its own sign-off is sent exactly as written; set it to true to have Sendly add the saved signature to both parts (see `updateMailboxSignature`).\n\nBcc recipients are delivered to but appear in no header, which also means the copy filed in the mailbox's Sent folder does not record them.\n\nRefusals worth handling by name:\n\n- `422 RECIPIENT_SUPPRESSED` — one or more recipients are on this project's suppression list. The message names them; remove them or take them off the list.\n- `422 RESERVED_RECIPIENT_DOMAIN` — a recipient is at a reserved domain (`.test`, `.example`, `.invalid`, `.localhost`, `.local`, example.com and the like) that can never receive mail. The message names the domain.\n- `422 CONTENT_REFUSED` — the outbound content scanner refused the message.\n- `503 CONTENT_SCAN_UNAVAILABLE` — screening could not reach a verdict for a young project. Nothing was sent; retry shortly.\n- `429` — a mailbox may send 60 messages an hour through this endpoint.\n- `429 SENDING_LIMIT_REACHED` — a daily, account or warm-up sending limit; wait the `Retry-After` and retry.\n- `429 BILLING_LIMIT_EXCEEDED` — the plan's monthly sending quota is spent (`error.next` names `upgrade_plan`, no `Retry-After`); upgrade the plan.\n- `409 SEND_NOT_RECORDED` — the message WAS sent; Sendly could not write its record at that moment (`error.details.submitted` is `true`). **Do not send it again.** The copy appears in the mailbox once it next syncs.\n\nThe message is stored as a new conversation on the mailbox, so the reply threads onto it.\n\nRequires the `mailboxes:send` scope — Write and send new email from your hosted mailboxes, as that address.",
         "operationId": "sendMailboxMessage",
         "parameters": [
           {
@@ -23217,6 +24104,10 @@
                           "description": "The stored outbound message.",
                           "format": "uuid",
                           "type": "string"
+                        },
+                        "signatureIncluded": {
+                          "description": "Present only when the request set `includeSignature`: whether the mailbox's saved signature is in the message that was sent (false when the mailbox has none).",
+                          "type": "boolean"
                         },
                         "submitted": {
                           "enum": [
@@ -23468,6 +24359,147 @@
           }
         ],
         "summary": "Show which of the person's projects a mailbox belongs to",
+        "tags": [
+          "Mailboxes"
+        ]
+      }
+    },
+    "/api/mailboxes/{id}/signature": {
+      "put": {
+        "description": "Set, change or remove the mailbox's email signature, and choose whether it belongs on new messages and on replies. Send any of the three keys; a key left out is unchanged. `text: null` removes the signature.\n\n**The signature is plain text.** At most 1000 characters and 12 lines; control characters and trailing whitespace are removed before it is stored, and the response shows the stored form. There is no `html` field, and unknown keys are refused: the mailbox render path accepts no caller markup and builds no link out of text.\n\n**Saving a signature changes no message by itself.** A send through `sendMailboxMessage` or `replyToMailboxConversation` carries it only when that request sets `includeSignature: true`. The dashboard composer reads `includeOnNewMessages` / `includeOnReplies` and puts the signature in the draft, where the sender can edit or delete it before sending.\n\nThe current value is read on `getMailbox` (`signature`). Sendly's copy is the one it sends with; the text is also stored on the mailbox's JMAP Identity (`textSignature` / `htmlSignature`) so a JMAP mail client offers the same signature. IMAP has no signature setting, so an IMAP client keeps its own.\n\nAny member of the project may call this, and so may an API key holding `mailboxes:write`.\n\nRequires the `mailboxes:write` scope — Create and delete mailboxes on your verified domains.",
+        "operationId": "updateMailboxSignature",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateMailboxSignature"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/MailboxSignature"
+                    },
+                    "success": {
+                      "enum": [
+                        true
+                      ],
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "The signature as stored"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Validation error"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unauthorized — missing or invalid auth"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Forbidden — insufficient permissions or project disabled"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "The body is empty, names an unknown key, or the signature is too long."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Rate limit or billing limit exceeded"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          },
+          {
+            "SessionAuth": []
+          },
+          {
+            "OAuth2": [
+              "mailboxes:write"
+            ]
+          }
+        ],
+        "summary": "Set a mailbox's signature",
         "tags": [
           "Mailboxes"
         ]
@@ -24295,7 +25327,7 @@
         ]
       },
       "post": {
-        "description": "Mint a new API key on the project. The token is NOT returned — the response carries the key's metadata plus a one-time `revealUrl` that only a signed-in dashboard session can open.\n\n**Scope attenuation:** a key created with a delegated credential (an OAuth token or another API key) may not carry a scope that credential does not itself hold. A request that asks for more is refused with `400 SCOPE_ESCALATION` rather than quietly narrowed, so the mistake is reported where it was made instead of surfacing later as an unexplained 403. Naming only `legacyGrantPreset` counts as asking for every scope that preset implies.\n\nRequires the `api-keys:write` scope — Create, rotate, and revoke API keys — these keep working even after you disconnect this app.",
+        "description": "Mint a new API key on the project. What comes back depends on who is calling. A signed-in dashboard session receives the key's metadata and the token itself in `plaintextToken`, once. Any other caller (an OAuth token, so an agent or MCP tool) does not receive the token: the response carries the metadata plus a one-time `revealUrl` that only a signed-in dashboard session can open.\n\n**Scope attenuation:** a key created with a delegated credential (an OAuth token or another API key) may not carry a scope that credential does not itself hold. A request that asks for more is refused with `400 SCOPE_ESCALATION` rather than quietly narrowed, so the mistake is reported where it was made instead of surfacing later as an unexplained 403. Naming only `legacyGrantPreset` counts as asking for every scope that preset implies.\n\nRequires the `api-keys:write` scope — Create, rotate, and revoke API keys — these keep working even after you disconnect this app.",
         "operationId": "createApiKey",
         "parameters": [
           {
@@ -24332,21 +25364,21 @@
                         },
                         {
                           "properties": {
+                            "plaintextToken": {
+                              "description": "The new secret, shown once. Returned ONLY to a signed-in dashboard session; an OAuth or agent caller never receives it and gets `revealUrl` instead. Store it now: it cannot be read again.",
+                              "type": "string"
+                            },
                             "revealExpiresAt": {
-                              "description": "When the reveal link stops working. Create or rotate again to get a new one.",
+                              "description": "When the reveal link stops working. Present with `revealUrl`. Create or rotate again to get a new one.",
                               "format": "date-time",
                               "type": "string"
                             },
                             "revealUrl": {
-                              "description": "A one-time, session-authenticated URL where the person who owns this project can see the secret. The secret itself is never returned to an API or agent caller: opening this link requires a signed-in dashboard session, so the credential that created the key cannot redeem it. Single use — the first successful open consumes it.",
+                              "description": "Returned instead of `plaintextToken` to every caller that is not a dashboard session. A one-time, session-authenticated URL where the person who owns this project can see the secret: opening it requires a signed-in dashboard session, so the credential that created the key cannot redeem it. Single use — the first successful open consumes it.",
                               "format": "uri",
                               "type": "string"
                             }
                           },
-                          "required": [
-                            "revealUrl",
-                            "revealExpiresAt"
-                          ],
                           "type": "object"
                         }
                       ],
@@ -24367,7 +25399,7 @@
                 }
               }
             },
-            "description": "API key created; the secret is behind the reveal link."
+            "description": "API key created. The secret is in `plaintextToken` for a dashboard session, behind `revealUrl` for everyone else."
           },
           "400": {
             "content": {
@@ -24679,7 +25711,7 @@
     },
     "/api/projects/{id}/api-keys/{keyId}/rotate": {
       "post": {
-        "description": "Replace the key's secret in place, keeping its id, name and scopes. The PREVIOUS secret stops authenticating immediately — there is no overlap window — so anything still using it starts failing on its next request. As with creation, the new secret is not returned: the response carries `lastFour` and a one-time `revealUrl`. A revoked key cannot be rotated (`400 KEY_REVOKED`).\n\nRequires the `api-keys:write` scope — Create, rotate, and revoke API keys — these keep working even after you disconnect this app.",
+        "description": "Replace the key's secret in place, keeping its id, name and scopes. The PREVIOUS secret stops authenticating immediately — there is no overlap window — so anything still using it starts failing on its next request. As with creation, the response depends on the caller: a signed-in dashboard session receives the new secret in `plaintextToken`, once; any other caller receives `lastFour` and a one-time `revealUrl` and never the secret. A revoked key cannot be rotated (`400 KEY_REVOKED`).\n\nRequires the `api-keys:write` scope — Create, rotate, and revoke API keys — these keep working even after you disconnect this app.",
         "operationId": "rotateApiKey",
         "parameters": [
           {
@@ -24714,21 +25746,23 @@
                         "lastFour": {
                           "type": "string"
                         },
+                        "plaintextToken": {
+                          "description": "The new secret, shown once. Returned ONLY to a signed-in dashboard session; an OAuth or agent caller never receives it and gets `revealUrl` instead. Store it now: it cannot be read again.",
+                          "type": "string"
+                        },
                         "revealExpiresAt": {
-                          "description": "When the reveal link stops working. Create or rotate again to get a new one.",
+                          "description": "When the reveal link stops working. Present with `revealUrl`. Create or rotate again to get a new one.",
                           "format": "date-time",
                           "type": "string"
                         },
                         "revealUrl": {
-                          "description": "A one-time, session-authenticated URL where the person who owns this project can see the secret. The secret itself is never returned to an API or agent caller: opening this link requires a signed-in dashboard session, so the credential that created the key cannot redeem it. Single use — the first successful open consumes it.",
+                          "description": "Returned instead of `plaintextToken` to every caller that is not a dashboard session. A one-time, session-authenticated URL where the person who owns this project can see the secret: opening it requires a signed-in dashboard session, so the credential that created the key cannot redeem it. Single use — the first successful open consumes it.",
                           "format": "uri",
                           "type": "string"
                         }
                       },
                       "required": [
-                        "lastFour",
-                        "revealUrl",
-                        "revealExpiresAt"
+                        "lastFour"
                       ],
                       "type": "object"
                     },
@@ -24747,7 +25781,7 @@
                 }
               }
             },
-            "description": "API key rotated; the new secret is behind the reveal link."
+            "description": "API key rotated. The new secret is in `plaintextToken` for a dashboard session, behind `revealUrl` for everyone else."
           },
           "400": {
             "content": {
@@ -25762,17 +26796,42 @@
           }
         ],
         "responses": {
-          "200": {
+          "202": {
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": {},
-                  "properties": {},
+                  "description": "The recompute was accepted and runs as a background job.",
+                  "properties": {
+                    "data": {
+                      "properties": {
+                        "status": {
+                          "enum": [
+                            "queued"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "status"
+                      ],
+                      "type": "object"
+                    },
+                    "success": {
+                      "enum": [
+                        true
+                      ],
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ],
                   "type": "object"
                 }
               }
             },
-            "description": "OK"
+            "description": "Accepted"
           },
           "400": {
             "content": {
@@ -27843,17 +28902,31 @@
           }
         ],
         "responses": {
-          "200": {
+          "201": {
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": {},
-                  "properties": {},
+                  "description": "The new template.",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Template"
+                    },
+                    "success": {
+                      "enum": [
+                        true
+                      ],
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ],
                   "type": "object"
                 }
               }
             },
-            "description": "OK"
+            "description": "Created"
           },
           "400": {
             "content": {
@@ -28358,8 +29431,59 @@
     },
     "/api/uploads/image": {
       "post": {
-        "description": "Host an image (JPEG, PNG, GIF or WebP) for use in emails and answer its hosted URL. Pass either url (a public address Sendly fetches) or base64 with filename and contentType.\n\nRequires the `templates:write` scope — Create, edit, and delete your email templates.",
+        "description": "Host an image for use in emails and answer its hosted URL. Send it as `multipart/form-data` with the file in the `image` field, or as `application/json` for a caller that cannot send multipart: either `{ url }` (a public http(s) address Sendly fetches) or `{ base64, filename, contentType }`.\n\nOnly JPEG, PNG, GIF and WebP are accepted, up to 10 MB. The file's own bytes are checked against its declared type, so a mislabelled file is refused with `400` `VALIDATION_ERROR`, as is a call with no body, a body that is neither multipart nor valid JSON, or no `image` part. A larger file answers `413` `PAYLOAD_TOO_LARGE`. A JSON body that fits neither shape, or a `url` that cannot be fetched (private address, unreachable, or a non-2xx answer), answers `422` `VALIDATION_ERROR`.\n\nRequires the `templates:write` scope — Create, edit, and delete your email templates.",
         "operationId": "uploadImage",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "properties": {
+                      "url": {
+                        "format": "uri",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "url"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "properties": {
+                      "base64": {
+                        "minLength": 1,
+                        "type": "string"
+                      },
+                      "contentType": {
+                        "pattern": "^image\\/",
+                        "type": "string"
+                      },
+                      "filename": {
+                        "maxLength": 200,
+                        "minLength": 1,
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "base64",
+                      "filename",
+                      "contentType"
+                    ],
+                    "type": "object"
+                  }
+                ]
+              }
+            },
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/ImageUploadForm"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "content": {
@@ -28436,6 +29560,26 @@
             },
             "description": "Resource not found"
           },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "`PAYLOAD_TOO_LARGE` — the image is over 10 MB."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "`VALIDATION_ERROR` — the JSON body fits neither shape, or the `url` could not be fetched."
+          },
           "429": {
             "content": {
               "application/json": {
@@ -28470,7 +29614,7 @@
             ]
           }
         ],
-        "summary": "Host an image (JPEG, PNG, GIF or WebP) for use in emails and answer its hosted URL",
+        "summary": "Host an image for use in emails",
         "tags": [
           "Templates"
         ]
@@ -31501,6 +32645,16 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "description": "What sent the reader to the paywall: `branding_banner`, `quick_start`, `inbox_quota_refusal`, `direct` or `unknown`. Echoed on the Checkout return URLs as `from` so the funnel can attribute the purchase; any other value is ignored.",
+            "in": "query",
+            "name": "source",
+            "required": false,
+            "schema": {
+              "description": "What sent the reader to the paywall: `branding_banner`, `quick_start`, `inbox_quota_refusal`, `direct` or `unknown`. Echoed on the Checkout return URLs as `from` so the funnel can attribute the purchase; any other value is ignored.",
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -31931,7 +33085,7 @@
                 }
               }
             },
-            "description": "`invalid_api_key` or `invalid_session` — missing or invalid credentials."
+            "description": "`invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials."
           },
           "403": {
             "content": {
@@ -32046,7 +33200,7 @@
                 }
               }
             },
-            "description": "`invalid_api_key` or `invalid_session` — missing or invalid credentials."
+            "description": "`invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials."
           },
           "403": {
             "content": {
@@ -32172,7 +33326,7 @@
                 }
               }
             },
-            "description": "`invalid_api_key` or `invalid_session` — missing or invalid credentials."
+            "description": "`invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials."
           },
           "403": {
             "content": {
@@ -32257,7 +33411,7 @@
                 }
               }
             },
-            "description": "`invalid_api_key` or `invalid_session` — missing or invalid credentials."
+            "description": "`invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials."
           },
           "403": {
             "content": {
@@ -32342,7 +33496,7 @@
                 }
               }
             },
-            "description": "`invalid_api_key` or `invalid_session` — missing or invalid credentials."
+            "description": "`invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials."
           },
           "403": {
             "content": {
@@ -32451,7 +33605,7 @@
                 }
               }
             },
-            "description": "`invalid_api_key` or `invalid_session` — missing or invalid credentials."
+            "description": "`invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials."
           },
           "403": {
             "content": {
@@ -32557,7 +33711,7 @@
                 }
               }
             },
-            "description": "`invalid_api_key` or `invalid_session` — missing or invalid credentials."
+            "description": "`invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials."
           },
           "403": {
             "content": {
@@ -32674,7 +33828,7 @@
                 }
               }
             },
-            "description": "`invalid_api_key` or `invalid_session` — missing or invalid credentials."
+            "description": "`invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials."
           },
           "403": {
             "content": {
@@ -32704,7 +33858,7 @@
                 }
               }
             },
-            "description": "`conflict` — a request with this `Idempotency-Key` is still in flight. Retry shortly."
+            "description": "`conflict` — a request with this `Idempotency-Key` is still in flight. Retry shortly. Or `outcome_uncertain` — a request with this key failed after part of it may already have been sent (`details.cause` holds the status and code it would otherwise have answered with). Ask `POST /api/emails/outcome` what it did; do not send it again under a new key."
           },
           "422": {
             "content": {
@@ -32802,7 +33956,7 @@
                 }
               }
             },
-            "description": "`invalid_api_key` or `invalid_session` — missing or invalid credentials."
+            "description": "`invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials."
           },
           "403": {
             "content": {
@@ -32908,7 +34062,7 @@
                 }
               }
             },
-            "description": "`invalid_api_key` or `invalid_session` — missing or invalid credentials."
+            "description": "`invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials."
           },
           "403": {
             "content": {
@@ -33034,7 +34188,7 @@
                 }
               }
             },
-            "description": "`invalid_api_key` or `invalid_session` — missing or invalid credentials."
+            "description": "`invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials."
           },
           "403": {
             "content": {
@@ -33152,7 +34306,7 @@
                 }
               }
             },
-            "description": "`invalid_api_key` or `invalid_session` — missing or invalid credentials."
+            "description": "`invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials."
           },
           "403": {
             "content": {
@@ -33282,7 +34436,7 @@
                 }
               }
             },
-            "description": "`invalid_api_key` or `invalid_session` — missing or invalid credentials."
+            "description": "`invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials."
           },
           "403": {
             "content": {
@@ -33400,7 +34554,7 @@
                 }
               }
             },
-            "description": "`invalid_api_key` or `invalid_session` — missing or invalid credentials."
+            "description": "`invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials."
           },
           "403": {
             "content": {
@@ -33518,7 +34672,7 @@
                 }
               }
             },
-            "description": "`invalid_api_key` or `invalid_session` — missing or invalid credentials."
+            "description": "`invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials."
           },
           "403": {
             "content": {
@@ -33636,7 +34790,7 @@
                 }
               }
             },
-            "description": "`invalid_api_key` or `invalid_session` — missing or invalid credentials."
+            "description": "`invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials."
           },
           "403": {
             "content": {
@@ -33786,7 +34940,7 @@
                 }
               }
             },
-            "description": "`invalid_api_key` or `invalid_session` — missing or invalid credentials."
+            "description": "`invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials."
           },
           "403": {
             "content": {
@@ -33816,7 +34970,7 @@
                 }
               }
             },
-            "description": "`conflict` — a request with this `Idempotency-Key` is still in flight. Retry shortly."
+            "description": "`conflict` — a request with this `Idempotency-Key` is still in flight. Retry shortly. Or `outcome_uncertain` — a request with this key failed after part of it may already have been sent (`details.cause` holds the status and code it would otherwise have answered with). Ask `POST /api/emails/outcome` what it did; do not send it again under a new key."
           },
           "422": {
             "content": {
@@ -33904,7 +35058,7 @@
                 }
               }
             },
-            "description": "`invalid_api_key` or `invalid_session` — missing or invalid credentials."
+            "description": "`invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials."
           },
           "403": {
             "content": {
@@ -33999,7 +35153,7 @@
                 }
               }
             },
-            "description": "`invalid_api_key` or `invalid_session` — missing or invalid credentials."
+            "description": "`invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials."
           },
           "403": {
             "content": {
@@ -34109,7 +35263,7 @@
                 }
               }
             },
-            "description": "`invalid_api_key` or `invalid_session` — missing or invalid credentials."
+            "description": "`invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials."
           },
           "403": {
             "content": {
@@ -34243,7 +35397,7 @@
                 }
               }
             },
-            "description": "`invalid_api_key` or `invalid_session` — missing or invalid credentials."
+            "description": "`invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials."
           },
           "403": {
             "content": {
@@ -34336,7 +35490,7 @@
                 }
               }
             },
-            "description": "`invalid_api_key` or `invalid_session` — missing or invalid credentials."
+            "description": "`invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials."
           },
           "403": {
             "content": {
@@ -34444,7 +35598,7 @@
                 }
               }
             },
-            "description": "`invalid_api_key` or `invalid_session` — missing or invalid credentials."
+            "description": "`invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials."
           },
           "403": {
             "content": {
@@ -34550,7 +35704,7 @@
                 }
               }
             },
-            "description": "`invalid_api_key` or `invalid_session` — missing or invalid credentials."
+            "description": "`invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials."
           },
           "403": {
             "content": {
@@ -34666,7 +35820,7 @@
                 }
               }
             },
-            "description": "`invalid_api_key` or `invalid_session` — missing or invalid credentials."
+            "description": "`invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials."
           },
           "403": {
             "content": {
@@ -34774,7 +35928,7 @@
                 }
               }
             },
-            "description": "`invalid_api_key` or `invalid_session` — missing or invalid credentials."
+            "description": "`invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials."
           },
           "403": {
             "content": {
@@ -34906,7 +36060,7 @@
                 }
               }
             },
-            "description": "`invalid_api_key` or `invalid_session` — missing or invalid credentials."
+            "description": "`invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials."
           },
           "403": {
             "content": {
@@ -35039,7 +36193,7 @@
                 }
               }
             },
-            "description": "`invalid_api_key` or `invalid_session` — missing or invalid credentials."
+            "description": "`invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials."
           },
           "403": {
             "content": {
@@ -35172,7 +36326,7 @@
                 }
               }
             },
-            "description": "`invalid_api_key` or `invalid_session` — missing or invalid credentials."
+            "description": "`invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials."
           },
           "403": {
             "content": {
@@ -35281,7 +36435,7 @@
                 }
               }
             },
-            "description": "`invalid_api_key` or `invalid_session` — missing or invalid credentials."
+            "description": "`invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials."
           },
           "403": {
             "content": {
@@ -35374,7 +36528,7 @@
                 }
               }
             },
-            "description": "`invalid_api_key` or `invalid_session` — missing or invalid credentials."
+            "description": "`invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials."
           },
           "403": {
             "content": {
@@ -35492,7 +36646,7 @@
                 }
               }
             },
-            "description": "`invalid_api_key` or `invalid_session` — missing or invalid credentials."
+            "description": "`invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials."
           },
           "403": {
             "content": {
@@ -35608,7 +36762,7 @@
                 }
               }
             },
-            "description": "`invalid_api_key` or `invalid_session` — missing or invalid credentials."
+            "description": "`invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials."
           },
           "403": {
             "content": {
@@ -35716,7 +36870,7 @@
                 }
               }
             },
-            "description": "`invalid_api_key` or `invalid_session` — missing or invalid credentials."
+            "description": "`invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials."
           },
           "403": {
             "content": {
@@ -35822,7 +36976,7 @@
                 }
               }
             },
-            "description": "`invalid_api_key` or `invalid_session` — missing or invalid credentials."
+            "description": "`invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials."
           },
           "403": {
             "content": {
@@ -35938,7 +37092,7 @@
                 }
               }
             },
-            "description": "`invalid_api_key` or `invalid_session` — missing or invalid credentials."
+            "description": "`invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials."
           },
           "403": {
             "content": {
@@ -36046,7 +37200,7 @@
                 }
               }
             },
-            "description": "`invalid_api_key` or `invalid_session` — missing or invalid credentials."
+            "description": "`invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials."
           },
           "403": {
             "content": {
@@ -36154,7 +37308,7 @@
                 }
               }
             },
-            "description": "`invalid_api_key` or `invalid_session` — missing or invalid credentials."
+            "description": "`invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials."
           },
           "403": {
             "content": {
@@ -36259,7 +37413,7 @@
                 }
               }
             },
-            "description": "`invalid_api_key` or `invalid_session` — missing or invalid credentials."
+            "description": "`invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials."
           },
           "403": {
             "content": {
@@ -36368,7 +37522,7 @@
                 }
               }
             },
-            "description": "`invalid_api_key` or `invalid_session` — missing or invalid credentials."
+            "description": "`invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials."
           },
           "403": {
             "content": {
@@ -36398,7 +37552,7 @@
                 }
               }
             },
-            "description": "`conflict` — a request with this `Idempotency-Key` is still in flight. Retry shortly."
+            "description": "`conflict` — a request with this `Idempotency-Key` is still in flight. Retry shortly. Or `outcome_uncertain` — a request with this key failed after part of it may already have been sent (`details.cause` holds the status and code it would otherwise have answered with). Ask `POST /api/emails/outcome` what it did; do not send it again under a new key."
           },
           "422": {
             "content": {
@@ -36408,7 +37562,7 @@
                 }
               }
             },
-            "description": "`validation_error` — the body did not match the schema; or `idempotency_key_reused` — this `Idempotency-Key` was already spent on a request with a different body. Send a new key."
+            "description": "`validation_error` — the body did not match the schema, or a recipient (`to`, `cc` or `bcc`) is at a reserved domain that can never receive mail (`.test`, `.example`, `.invalid`, `.localhost`, `.local`, `.onion`, `.internal`, `.home.arpa`, `.alt`, example.com/.net/.org and their subdomains; legacy code `RESERVED_RECIPIENT_DOMAIN`, and the detail names the domain, not the address; nothing was sent); or `idempotency_key_reused` — this `Idempotency-Key` was already spent on a request with a different body. Send a new key."
           },
           "429": {
             "content": {
@@ -36462,7 +37616,7 @@
     },
     "/api/v1/emails/test": {
       "post": {
-        "description": "Prove that sending works — before any domain, DNS record or verification exists.\n\nThe message is sent FROM this project's sandbox address (`sandbox_address` on `GET /api/v1/projects`) and can only reach ONE recipient: the project owner's own verified account email, which is also what `to` defaults to. Naming any other recipient answers 403, and naming a `from` answers 422 — the sender is resolved server-side and a request that expects a different one is refused rather than quietly re-addressed.\n\nThat restriction is the reason `emails:test` is a separate, non-sensitive scope: a call under it cannot put mail in a stranger's inbox, so it can sit in a default grant where `emails:send` may not. It is not a way to send real mail cheaply — use `POST /api/v1/emails` for that.\n\nSandbox sends are capped per project per day, and the response's `sandbox: true` marks the receipt so a relayed summary cannot pass a test send off as a real one.\n\nRequires the `emails:test` scope — Send test emails to your own address from the Sendly sandbox.",
+        "description": "Prove that sending works — before any domain, DNS record or verification exists.\n\nThe message is sent FROM this project's sandbox address (`sandbox_address` on `GET /api/v1/projects`) and can only reach ONE recipient: the project owner's own verified account email, which is also what `to` defaults to — or, for a keyless start's key, the address that start confirmed with `POST /api/v1/keyless/verify`. Naming any other recipient answers 403, and naming a `from` answers 422 — the sender is resolved server-side and a request that expects a different one is refused rather than quietly re-addressed.\n\nThat restriction is the reason `emails:test` is a separate, non-sensitive scope: a call under it cannot put mail in a stranger's inbox, so it can sit in a default grant where `emails:send` may not. It is not a way to send real mail cheaply — use `POST /api/v1/emails` for that.\n\nSandbox sends are capped per project per day, and the response's `sandbox: true` marks the receipt so a relayed summary cannot pass a test send off as a real one.\n\nRequires the `emails:test` scope — Send test emails to your own address from the Sendly sandbox.",
         "operationId": "v1SendTestEmail",
         "requestBody": {
           "content": {
@@ -36493,7 +37647,7 @@
                 }
               }
             },
-            "description": "`invalid_api_key` or `invalid_session` — missing or invalid credentials."
+            "description": "`invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials."
           },
           "403": {
             "content": {
@@ -36503,7 +37657,7 @@
                 }
               }
             },
-            "description": "`scope_missing`, `project_disabled`, or `forbidden` — the recipient is not the project owner's own verified account email (including the case where that address is not verified yet, so there is no default recipient), or `content_rejected` from automated content review."
+            "description": "`scope_missing`, `project_disabled`, or `forbidden` — the recipient is not the project owner's own verified account email (including the case where that address is not verified yet, so there is no default recipient; a keyless start that has not confirmed its code is the same case; a confirmed keyless start reaches only the address it was started with), `quota_exhausted` — the project's free test emails are used up (`next` names `add_domain`), or `content_rejected` from automated content review."
           },
           "409": {
             "content": {
@@ -36513,7 +37667,7 @@
                 }
               }
             },
-            "description": "`conflict` — this project has no sandbox sender. The handle is derived from the project owner's email and this project has no owner; no retry fixes it."
+            "description": "`conflict` — this project has no sandbox sender. The handle is derived from the project owner's email and this project has no owner (and is not a keyless start); no retry fixes it."
           },
           "422": {
             "content": {
@@ -36634,7 +37788,7 @@
                 }
               }
             },
-            "description": "`invalid_api_key` or `invalid_session` — missing or invalid credentials."
+            "description": "`invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials."
           },
           "403": {
             "content": {
@@ -36727,7 +37881,7 @@
                 }
               }
             },
-            "description": "`invalid_api_key` or `invalid_session` — missing or invalid credentials."
+            "description": "`invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials."
           },
           "403": {
             "content": {
@@ -36822,7 +37976,7 @@
                 }
               }
             },
-            "description": "`invalid_api_key` or `invalid_session` — missing or invalid credentials."
+            "description": "`invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials."
           },
           "403": {
             "content": {
@@ -36937,7 +38091,7 @@
                 }
               }
             },
-            "description": "`invalid_api_key` or `invalid_session` — missing or invalid credentials."
+            "description": "`invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials."
           },
           "403": {
             "content": {
@@ -36999,6 +38153,458 @@
         ]
       }
     },
+    "/api/v1/keyless": {
+      "get": {
+        "description": "Where a keyless start stands: the address, whether it is confirmed, the free test emails left, and the claim link. Bearer: the keyless key.\n\nRequires the `emails:test` scope — Send test emails to your own address from the Sendly sandbox.",
+        "operationId": "v1GetKeyless",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KeylessStatusV1"
+                }
+              }
+            },
+            "description": "Keyless start status"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "`invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials."
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "`scope_missing`, `project_access_denied`, or `project_disabled`."
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "`resource_not_found` — the key is not a keyless start's key, or that start was already claimed into an account (claiming revokes the key, so this mostly answers 401 instead)."
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "`validation_error` — query, path, or body parameters did not match the schema."
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "`rate_limited` — see `Retry-After` and the `RateLimit` headers."
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "`internal_error`."
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "`keyless_disabled` — keyless start is switched off. `details.signUpUrl` is where a person makes an account instead; every other part of Sendly is unaffected."
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          },
+          {
+            "OAuth2": [
+              "emails:test"
+            ]
+          }
+        ],
+        "summary": "Get a keyless start's status",
+        "tags": [
+          "Keyless"
+        ]
+      }
+    },
+    "/api/v1/keyless/resend": {
+      "post": {
+        "description": "Mail a new 6-digit code, replacing the old code and its tries. Bearer: the keyless key. At most 3 codes in a start's life (the first included), at least 60 seconds apart.\n\nRequires the `emails:test` scope — Send test emails to your own address from the Sendly sandbox.",
+        "operationId": "v1ResendKeylessCode",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KeylessResendV1"
+                }
+              }
+            },
+            "description": "New code mailed"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "`invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials."
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "`scope_missing`, `project_access_denied`, or `project_disabled`."
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "`resource_not_found` — the key is not a keyless start's key, or that start was already claimed into an account (claiming revokes the key, so this mostly answers 401 instead)."
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "`conflict` — the address is already confirmed, or `details.reason` is `codes_exhausted`: this start has had all 3 codes."
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "`validation_error` — query, path, or body parameters did not match the schema."
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "`rate_limited` — `details.reason` is `resend_too_soon`; `Retry-After` says how many seconds to wait."
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "`internal_error`."
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "`keyless_disabled` — keyless start is switched off. `details.signUpUrl` is where a person makes an account instead; every other part of Sendly is unaffected. Or `service_unavailable` — the code could not be mailed. Safe to retry."
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          },
+          {
+            "OAuth2": [
+              "emails:test"
+            ]
+          }
+        ],
+        "summary": "Resend a keyless start's code",
+        "tags": [
+          "Keyless"
+        ]
+      }
+    },
+    "/api/v1/keyless/start": {
+      "post": {
+        "description": "Send Sendly's free test emails to your OWN inbox with no account and no API key.\n\nAnswers a test project, a `pk_test_` key holding only `emails:test` (shown once, here), and mails a 6-digit code to `email`. Confirm the code with `POST /api/v1/keyless/verify`; from then on `POST /api/v1/emails/test` with the same key reaches that address and no other, until the free test emails are used up. `claim_url` lets a person adopt the project into a real account.\n\nThe first call answers 428 `proof_required`: `details` carries a `challenge` and the number of leading zero bits (`difficultyBits`) a SHA-256 of `<challenge>:<nonce>` must have, plus ready-to-run solvers in `details.howTo`. Send the same request again with the header `Sendly-Keyless-Proof: <challenge>:<nonce>`. A challenge lasts 5 minutes and works once.\n\nLimits: 3 starts per address and 5 per network a day, and a global daily ceiling. Sandbox, disposable and role addresses (`info@`, `admin@`, …) are refused.",
+        "operationId": "v1StartKeyless",
+        "parameters": [
+          {
+            "description": "`<challenge>:<nonce>` — the solved proof of work from a 428 answer.",
+            "in": "header",
+            "name": "Sendly-Keyless-Proof",
+            "required": false,
+            "schema": {
+              "description": "`<challenge>:<nonce>` — the solved proof of work from a 428 answer.",
+              "maxLength": 256,
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KeylessStartV1Request"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KeylessStartV1"
+                }
+              }
+            },
+            "description": "Test project created and the code mailed"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "`invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials."
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "`scope_missing`, `project_access_denied`, or `project_disabled`."
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "`validation_error` — the body did not match the schema, or the address is refused: not an email, a Sendly sandbox address, a disposable domain, or a role address."
+          },
+          "428": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "`proof_required` — send the request again with a solved proof of work. `details.reason` says why (`proof_missing`, `proof_invalid`, `proof_expired`, `proof_used`, `proof_too_easy`); `details` carries `challenge`, `algorithm`, `difficultyBits`, `expiresAt`, `header` and `howTo` (python, pythonWindows and node one-liners)."
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "`rate_limited` — `details.reason` is `email_daily_starts`, `network_daily_starts` or `global_daily_starts`; `details.resetsAt` and `Retry-After` say when the UTC day turns over. Or a request-rate limit: see `Retry-After` and the `RateLimit` headers."
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "`internal_error`."
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "`keyless_disabled` — keyless start is switched off. `details.signUpUrl` is where a person makes an account instead; every other part of Sendly is unaffected. Or `service_unavailable` — the start could not be counted or its code could not be mailed (nothing was created). Safe to retry after `Retry-After`."
+          }
+        },
+        "security": [],
+        "summary": "Start a keyless test project",
+        "tags": [
+          "Keyless"
+        ]
+      }
+    },
+    "/api/v1/keyless/verify": {
+      "post": {
+        "description": "Confirm the address a keyless start mailed its code to. Bearer: the keyless key. A code lasts 15 minutes and allows 5 tries; confirming an already confirmed start answers success again.\n\nRequires the `emails:test` scope — Send test emails to your own address from the Sendly sandbox.",
+        "operationId": "v1VerifyKeyless",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KeylessVerifyV1Request"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KeylessVerifyV1"
+                }
+              }
+            },
+            "description": "Address confirmed"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "`invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials."
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "`scope_missing`, `project_access_denied`, or `project_disabled`."
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "`resource_not_found` — the key is not a keyless start's key, or that start was already claimed into an account (claiming revokes the key, so this mostly answers 401 instead)."
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "`conflict` — `details.reason` is `code_expired` or `code_attempts_exhausted`: ask for a new code with `POST /api/v1/keyless/resend`."
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "`validation_error` — the body did not match the schema, or `details.reason` is `code_incorrect` with `details.attemptsLeft`."
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "`rate_limited` — see `Retry-After` and the `RateLimit` headers."
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "`internal_error`."
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "`keyless_disabled` — keyless start is switched off. `details.signUpUrl` is where a person makes an account instead; every other part of Sendly is unaffected."
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          },
+          {
+            "OAuth2": [
+              "emails:test"
+            ]
+          }
+        ],
+        "summary": "Confirm a keyless start's email",
+        "tags": [
+          "Keyless"
+        ]
+      }
+    },
     "/api/v1/lists": {
       "get": {
         "description": "Cursor-paginated list of subscriber lists, newest first. Pass the previous response's `next_cursor` as `after` to page forward; `has_more` is false and `next_cursor` is null on the last page.\n\n`member_count` counts memberships in EVERY status — `PENDING` and `UNSUBSCRIBED` included — so it is the size of the membership table for this list, not the number of people currently subscribed. Read `GET /api/lists/{id}/members?status=CONFIRMED` when you want the latter.\n\nRequires the `lists:read` scope — View your subscriber lists and who is on them.",
@@ -37046,7 +38652,7 @@
                 }
               }
             },
-            "description": "`invalid_api_key` or `invalid_session` — missing or invalid credentials."
+            "description": "`invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials."
           },
           "403": {
             "content": {
@@ -37139,7 +38745,7 @@
                 }
               }
             },
-            "description": "`invalid_api_key` or `invalid_session` — missing or invalid credentials."
+            "description": "`invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials."
           },
           "403": {
             "content": {
@@ -37237,7 +38843,7 @@
                 }
               }
             },
-            "description": "`invalid_api_key` or `invalid_session` — missing or invalid credentials."
+            "description": "`invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials."
           },
           "403": {
             "content": {
@@ -37343,7 +38949,7 @@
                 }
               }
             },
-            "description": "`invalid_api_key` or `invalid_session` — missing or invalid credentials."
+            "description": "`invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials."
           },
           "403": {
             "content": {
@@ -37459,7 +39065,7 @@
                 }
               }
             },
-            "description": "`invalid_api_key` or `invalid_session` — missing or invalid credentials."
+            "description": "`invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials."
           },
           "403": {
             "content": {
@@ -37567,7 +39173,7 @@
                 }
               }
             },
-            "description": "`invalid_api_key` or `invalid_session` — missing or invalid credentials."
+            "description": "`invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials."
           },
           "403": {
             "content": {
@@ -37662,7 +39268,7 @@
                 }
               }
             },
-            "description": "`invalid_api_key` or `invalid_session` — missing or invalid credentials."
+            "description": "`invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials."
           },
           "403": {
             "content": {
@@ -37781,7 +39387,7 @@
                 }
               }
             },
-            "description": "`invalid_api_key` or `invalid_session` — missing or invalid credentials."
+            "description": "`invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials."
           },
           "403": {
             "content": {
@@ -37884,7 +39490,7 @@
                 }
               }
             },
-            "description": "`invalid_api_key` or `invalid_session` — missing or invalid credentials."
+            "description": "`invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials."
           },
           "403": {
             "content": {
@@ -37982,7 +39588,7 @@
                 }
               }
             },
-            "description": "`invalid_api_key` or `invalid_session` — missing or invalid credentials."
+            "description": "`invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials."
           },
           "403": {
             "content": {
@@ -38098,7 +39704,7 @@
                 }
               }
             },
-            "description": "`invalid_api_key` or `invalid_session` — missing or invalid credentials."
+            "description": "`invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials."
           },
           "403": {
             "content": {
@@ -38224,7 +39830,7 @@
                 }
               }
             },
-            "description": "`invalid_api_key` or `invalid_session` — missing or invalid credentials."
+            "description": "`invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials."
           },
           "403": {
             "content": {
@@ -38354,7 +39960,7 @@
                 }
               }
             },
-            "description": "`invalid_api_key` or `invalid_session` — missing or invalid credentials."
+            "description": "`invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials."
           },
           "403": {
             "content": {
@@ -38449,7 +40055,7 @@
                 }
               }
             },
-            "description": "`invalid_api_key` or `invalid_session` — missing or invalid credentials."
+            "description": "`invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials."
           },
           "403": {
             "content": {
@@ -38580,7 +40186,7 @@
                 }
               }
             },
-            "description": "`invalid_api_key` or `invalid_session` — missing or invalid credentials."
+            "description": "`invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials."
           },
           "403": {
             "content": {
@@ -38705,7 +40311,7 @@
                 }
               }
             },
-            "description": "`invalid_api_key` or `invalid_session` — missing or invalid credentials."
+            "description": "`invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials."
           },
           "403": {
             "content": {
@@ -38798,7 +40404,7 @@
                 }
               }
             },
-            "description": "`invalid_api_key` or `invalid_session` — missing or invalid credentials."
+            "description": "`invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials."
           },
           "403": {
             "content": {
@@ -38896,7 +40502,7 @@
                 }
               }
             },
-            "description": "`invalid_api_key` or `invalid_session` — missing or invalid credentials."
+            "description": "`invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials."
           },
           "403": {
             "content": {
@@ -38992,7 +40598,7 @@
                 }
               }
             },
-            "description": "`invalid_api_key` or `invalid_session` — missing or invalid credentials."
+            "description": "`invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials."
           },
           "403": {
             "content": {
@@ -39135,7 +40741,7 @@
                 }
               }
             },
-            "description": "`invalid_api_key` or `invalid_session` — missing or invalid credentials."
+            "description": "`invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials."
           },
           "403": {
             "content": {
@@ -39228,7 +40834,7 @@
                 }
               }
             },
-            "description": "`invalid_api_key` or `invalid_session` — missing or invalid credentials."
+            "description": "`invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials."
           },
           "403": {
             "content": {
@@ -39326,7 +40932,7 @@
                 }
               }
             },
-            "description": "`invalid_api_key` or `invalid_session` — missing or invalid credentials."
+            "description": "`invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials."
           },
           "403": {
             "content": {
@@ -39442,7 +41048,7 @@
                 }
               }
             },
-            "description": "`invalid_api_key` or `invalid_session` — missing or invalid credentials."
+            "description": "`invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials."
           },
           "403": {
             "content": {
@@ -39558,7 +41164,7 @@
                 }
               }
             },
-            "description": "`invalid_api_key` or `invalid_session` — missing or invalid credentials."
+            "description": "`invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials."
           },
           "403": {
             "content": {
@@ -39688,7 +41294,7 @@
                 }
               }
             },
-            "description": "`invalid_api_key` or `invalid_session` — missing or invalid credentials."
+            "description": "`invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials."
           },
           "403": {
             "content": {
@@ -39781,7 +41387,7 @@
                 }
               }
             },
-            "description": "`invalid_api_key` or `invalid_session` — missing or invalid credentials."
+            "description": "`invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials."
           },
           "403": {
             "content": {
@@ -39879,7 +41485,7 @@
                 }
               }
             },
-            "description": "`invalid_api_key` or `invalid_session` — missing or invalid credentials."
+            "description": "`invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials."
           },
           "403": {
             "content": {
@@ -39995,7 +41601,7 @@
                 }
               }
             },
-            "description": "`invalid_api_key` or `invalid_session` — missing or invalid credentials."
+            "description": "`invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials."
           },
           "403": {
             "content": {
@@ -40113,7 +41719,7 @@
                 }
               }
             },
-            "description": "`invalid_api_key` or `invalid_session` — missing or invalid credentials."
+            "description": "`invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials."
           },
           "403": {
             "content": {
@@ -40208,7 +41814,7 @@
                 }
               }
             },
-            "description": "`invalid_api_key` or `invalid_session` — missing or invalid credentials."
+            "description": "`invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials."
           },
           "403": {
             "content": {
@@ -40306,7 +41912,7 @@
                 }
               }
             },
-            "description": "`invalid_api_key` or `invalid_session` — missing or invalid credentials."
+            "description": "`invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials."
           },
           "403": {
             "content": {
@@ -40452,7 +42058,7 @@
                 }
               }
             },
-            "description": "`invalid_api_key` or `invalid_session` — missing or invalid credentials."
+            "description": "`invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials."
           },
           "403": {
             "content": {
@@ -40571,7 +42177,7 @@
                 }
               }
             },
-            "description": "`invalid_api_key` or `invalid_session` — missing or invalid credentials."
+            "description": "`invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials."
           },
           "403": {
             "content": {
@@ -40664,7 +42270,7 @@
                 }
               }
             },
-            "description": "`invalid_api_key` or `invalid_session` — missing or invalid credentials."
+            "description": "`invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials."
           },
           "403": {
             "content": {
@@ -40762,7 +42368,7 @@
                 }
               }
             },
-            "description": "`invalid_api_key` or `invalid_session` — missing or invalid credentials."
+            "description": "`invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials."
           },
           "403": {
             "content": {
@@ -40868,7 +42474,7 @@
                 }
               }
             },
-            "description": "`invalid_api_key` or `invalid_session` — missing or invalid credentials."
+            "description": "`invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials."
           },
           "403": {
             "content": {
@@ -40984,7 +42590,7 @@
                 }
               }
             },
-            "description": "`invalid_api_key` or `invalid_session` — missing or invalid credentials."
+            "description": "`invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials."
           },
           "403": {
             "content": {
@@ -41092,7 +42698,7 @@
                 }
               }
             },
-            "description": "`invalid_api_key` or `invalid_session` — missing or invalid credentials."
+            "description": "`invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials."
           },
           "403": {
             "content": {
@@ -41211,7 +42817,7 @@
                 }
               }
             },
-            "description": "`invalid_api_key` or `invalid_session` — missing or invalid credentials."
+            "description": "`invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials."
           },
           "403": {
             "content": {
@@ -41304,7 +42910,7 @@
                 }
               }
             },
-            "description": "`invalid_api_key` or `invalid_session` — missing or invalid credentials."
+            "description": "`invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials."
           },
           "403": {
             "content": {
@@ -41402,7 +43008,7 @@
                 }
               }
             },
-            "description": "`invalid_api_key` or `invalid_session` — missing or invalid credentials."
+            "description": "`invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials."
           },
           "403": {
             "content": {
@@ -41510,7 +43116,7 @@
                 }
               }
             },
-            "description": "`invalid_api_key` or `invalid_session` — missing or invalid credentials."
+            "description": "`invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials."
           },
           "403": {
             "content": {
@@ -41626,7 +43232,7 @@
                 }
               }
             },
-            "description": "`invalid_api_key` or `invalid_session` — missing or invalid credentials."
+            "description": "`invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials."
           },
           "403": {
             "content": {
@@ -41742,7 +43348,7 @@
                 }
               }
             },
-            "description": "`invalid_api_key` or `invalid_session` — missing or invalid credentials."
+            "description": "`invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials."
           },
           "403": {
             "content": {
@@ -41870,7 +43476,7 @@
                 }
               }
             },
-            "description": "`invalid_api_key` or `invalid_session` — missing or invalid credentials."
+            "description": "`invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials."
           },
           "403": {
             "content": {
@@ -42018,7 +43624,7 @@
                 }
               }
             },
-            "description": "`invalid_api_key` or `invalid_session` — missing or invalid credentials."
+            "description": "`invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials."
           },
           "403": {
             "content": {
@@ -42134,7 +43740,7 @@
                 }
               }
             },
-            "description": "`invalid_api_key` or `invalid_session` — missing or invalid credentials."
+            "description": "`invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials."
           },
           "403": {
             "content": {
@@ -42252,7 +43858,7 @@
                 }
               }
             },
-            "description": "`invalid_api_key` or `invalid_session` — missing or invalid credentials."
+            "description": "`invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials."
           },
           "403": {
             "content": {
@@ -42368,7 +43974,7 @@
                 }
               }
             },
-            "description": "`invalid_api_key` or `invalid_session` — missing or invalid credentials."
+            "description": "`invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials."
           },
           "403": {
             "content": {
@@ -42486,7 +44092,7 @@
                 }
               }
             },
-            "description": "`invalid_api_key` or `invalid_session` — missing or invalid credentials."
+            "description": "`invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials."
           },
           "403": {
             "content": {
@@ -42594,7 +44200,7 @@
                 }
               }
             },
-            "description": "`invalid_api_key` or `invalid_session` — missing or invalid credentials."
+            "description": "`invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials."
           },
           "403": {
             "content": {
@@ -42716,7 +44322,7 @@
                 }
               }
             },
-            "description": "`invalid_api_key` or `invalid_session` — missing or invalid credentials."
+            "description": "`invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials."
           },
           "403": {
             "content": {
@@ -44120,7 +45726,7 @@
           }
         ],
         "responses": {
-          "200": {
+          "201": {
             "content": {
               "application/json": {
                 "schema": {
@@ -44130,7 +45736,7 @@
                 }
               }
             },
-            "description": "OK"
+            "description": "Created"
           },
           "400": {
             "content": {
@@ -44564,7 +46170,7 @@
           }
         ],
         "responses": {
-          "200": {
+          "201": {
             "content": {
               "application/json": {
                 "schema": {
@@ -44574,7 +46180,7 @@
                 }
               }
             },
-            "description": "OK"
+            "description": "Created"
           },
           "400": {
             "content": {
@@ -44899,7 +46505,7 @@
           }
         ],
         "responses": {
-          "200": {
+          "201": {
             "content": {
               "application/json": {
                 "schema": {
@@ -44909,7 +46515,7 @@
                 }
               }
             },
-            "description": "OK"
+            "description": "Created"
           },
           "400": {
             "content": {
@@ -45402,6 +47008,10 @@
     {
       "description": "Real receiving mailboxes on your verified domains. Creating one changes how that domain's mail is routed; the messages a mailbox receives are not part of this API.",
       "name": "Mailboxes"
+    },
+    {
+      "description": "Free test emails to your own inbox with no account and no API key: start, confirm the code, send, then claim the project into an account.",
+      "name": "Keyless"
     },
     {
       "description": "Open email-validation endpoint (no auth required). Used by the marketing-site verifier.",

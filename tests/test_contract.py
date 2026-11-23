@@ -49,13 +49,21 @@ _PARAM_RE = re.compile(r"\{[^}]*\}")
 #: implemented, so a stale entry fails the suite.
 #:
 #: NOT YET -- a genuine gap: key-callable operations the contract publishes that
-#: no resource method wraps yet. Empty since the 67 operations surfaced by the
-#: re-sync from the released contract (docs.sendly.now/openapi.json, which had grown
-#: from 106 to 198 paths) were implemented. The set is kept, not deleted: the
+#: no resource method wraps yet. The 67 operations surfaced by the re-sync from the
+#: released contract (docs.sendly.now/openapi.json, which had grown from 106 to 198
+#: paths) were implemented; the 1.4.0 re-sync (for ``priority``, T-20910) found the
+#: five below, published since. The set is kept, not deleted: the
 #: suite still checks it, so the next re-sync that publishes an operation the SDK
 #: lacks lists it here, visibly, instead of failing as an unexplained gap. Kept in
 #: step with sendly-js's NOT_YET_IMPLEMENTED.
-NOT_YET_IMPLEMENTED: set[tuple[str, str]] = set()
+NOT_YET_IMPLEMENTED: set[tuple[str, str]] = {
+    # The keyless test-project start and the mailbox signature, each needing its own method.
+    ("GET", "/api/v1/keyless"),
+    ("POST", "/api/v1/keyless/resend"),
+    ("POST", "/api/v1/keyless/start"),
+    ("POST", "/api/v1/keyless/verify"),
+    ("PUT", "/api/mailboxes/{id}/signature"),
+}
 
 
 def _is_compat_dialect(path: str) -> bool:
